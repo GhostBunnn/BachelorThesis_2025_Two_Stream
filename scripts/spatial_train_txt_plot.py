@@ -14,19 +14,32 @@ import torch.nn as nn
 from tqdm import tqdm
 import json
 import matplotlib.pyplot as plt
+import argparse
+import csv
+
+# Argument parser for run_id
+'''
+run by typing python spatial_train_txt_plot.py --run_id run1, run2, run3... 
+'''
+parser = argparse.ArgumentParser()
+parser.add_argument('--run_id', type=str, required=True, help='Unique ID for this run (e.g., run1, run2, ...)')
+args = parser.parse_args()
+run_id = args.run_id
 
 # Hyperparameters
 batch_size = 25
 learning_rate = 0.0001
 num_epochs = 25
-early_stopping_patience = 1500000
 
 # Paths
 DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"sssspatial_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"{args.run_id}_sssspatial_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+os.makedirs(RESULTS_DIR, exist_ok=True)
+CSV_PATH = os.path.join(RESULTS_DIR, "pruning_accuracies.csv")
 
 # Transformations
 transform = transforms.Compose([
@@ -73,7 +86,6 @@ train_losses, val_losses = [], []
 
 # Early stopping variables
 best_val_loss = float('inf')
-patience_counter = 0
 
 # Training loop
 for epoch in range(num_epochs):
@@ -137,11 +149,6 @@ for epoch in range(num_epochs):
         patience_counter = 0
         torch.save(model.state_dict(), MODEL_SAVE_PATH)
         print(f"Model saved to {MODEL_SAVE_PATH}")
-    else:
-        patience_counter += 1
-        if patience_counter >= early_stopping_patience:
-            print("Early stopping triggered.")
-            break
 
 # Testing phase
 model.eval()
@@ -167,6 +174,10 @@ test_accuracy = 100 * correct / total
 avg_test_loss = test_loss / len(test_loader)
 
 print(f"Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.2f}%")
+
+with open(CSV_PATH, mode="a", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow([run_id, 0.0, test_accuracy, "unpruned"])
 
 plt.figure(figsize=(10, 6))
 
