@@ -1,0 +1,22 @@
+name: two_stream
+channels:
+  - nvidia
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - numpy
+  - pandas
+  - matplotlib
+  - opencv
+  - tqdm
+  - pyyaml
+  - scikit-learn
+  - pytorch=2.0
+  - torchvision=0.15
+  - scipy
+  - pillow
+  - tqdm
+  # - torchaudio=2.0.1
+  - pytorch-cuda=11.8
