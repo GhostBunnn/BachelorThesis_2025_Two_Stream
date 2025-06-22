@@ -265,5 +265,6 @@ if __name__ == "__main__":
     final_accuracy, final_loss = test_model(model, test_loader)
 
     plot_save_path = os.path.join(BASE_DIR, "plots", "pruned_temporal" , f"{args.run_id}_temporal_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max20_03.png")
+    os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)
     plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, plot_save_path)
     print(f"Plot saved to {plot_save_path}")

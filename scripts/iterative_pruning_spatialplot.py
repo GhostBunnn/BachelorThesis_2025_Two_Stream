@@ -221,5 +221,6 @@ print("Evaluating final pruned model on test data...")
 final_accuracy, _ = test_model(model, test_loader)
 
 plot_save_path = os.path.join(BASE_DIR, "plots", "pruned_spatial", f"{args.run_id}_spatial_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max50_03.png")
+os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)
 plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, plot_save_path)
 print(f"Plot saved to {plot_save_path}")
