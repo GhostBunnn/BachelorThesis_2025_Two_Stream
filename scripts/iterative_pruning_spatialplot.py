@@ -38,7 +38,7 @@ TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt"
 PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_iterative_spatial_pruned_model.pth")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-CSV_PATH = os.path.join(RESULTS_DIR, "pruning_accuracies.csv")
+CSV_PATH = os.path.join(RESULTS_DIR, "spatial_pruning_accuracies.csv")
 
 # Transformations
 transform = transforms.Compose([
@@ -142,16 +142,32 @@ def test_model(model, test_loader):
     print(f"Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.2f}%")
     return test_accuracy, avg_test_loss
 
-def plot_metrics(prune_percentages, accuracies, baseline_accuracy, save_path):
-    plt.figure(figsize=(8, 5))
+def plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, save_path):
+    plt.figure(figsize=(10, 5))
+
+    # Plot Accuracy
+    plt.subplot(1, 2, 1)
     plt.plot(prune_percentages, accuracies, marker='o', label='Pruned Model Accuracy')
     plt.axhline(y=baseline_accuracy, color='r', linestyle='--', label='Baseline Accuracy')
-    plt.title("Spatial Test Accuracy vs. Pruning Percentage")
     plt.xlabel("Pruning Percentage (%)")
     plt.ylabel("Accuracy (%)")
+    plt.title("Test Accuracy vs. Spatial Pruning Percentage")
     plt.legend()
     plt.grid(True)
+
+    # Plot Loss
+    plt.subplot(1, 2, 2)
+    plt.plot(prune_percentages, losses, marker='o', label='Pruned Model Loss')
+    plt.axhline(y=baseline_loss, color='r', linestyle='--', label='Baseline Loss')
+    plt.xlabel("Pruning Percentage (%)")
+    plt.ylabel("Loss")
+    plt.title("Test Loss vs. Pruning Percentage")
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
     plt.savefig(save_path)
+    plt.close()
 
 # Iterative pruning 
 max_prune_percentage = 0.5  # pruning limit
@@ -159,7 +175,7 @@ prune_step = 0.04  # prune x% at each step
 current_remaining_percentage = 1.0
 
 print("Evaluating baseline model on test data...")
-baseline_accuracy, _ = test_model(model, test_loader)  # baseline model
+baseline_accuracy, baseline_loss = test_model(model, test_loader)  # baseline model
 
 # Save baseline accuracy
 with open(CSV_PATH, mode="a", newline="") as file:
@@ -168,6 +184,7 @@ with open(CSV_PATH, mode="a", newline="") as file:
 
 prune_percentages = []
 accuracies = []
+losses = []
 total_pruned_percentage = 0
 retrain_epochs = 5
 
@@ -191,9 +208,10 @@ while total_pruned_percentage < max_prune_percentage:
     torch.save(model.state_dict(), model_save_path)
     print(f"Pruned model saved at: {model_save_path}")
     
-    accuracy, _ = test_model(model, test_loader)
+    accuracy, loss = test_model(model, test_loader)
     prune_percentages.append(total_pruned_percentage * 100)
     accuracies.append(accuracy)
+    losses.append(loss)
     
     with open(CSV_PATH, mode="a", newline="") as file:
         writer = csv.writer(file)
@@ -202,6 +220,6 @@ while total_pruned_percentage < max_prune_percentage:
 print("Evaluating final pruned model on test data...")
 final_accuracy, _ = test_model(model, test_loader)
 
-plot_save_path = os.path.join(BASE_DIR, "plots", f"{args.run_id}_spatial_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max50_03.png")
-plot_metrics(prune_percentages, accuracies, baseline_accuracy, plot_save_path)
+plot_save_path = os.path.join(BASE_DIR, "plots", "pruned_spatial", f"{args.run_id}_spatial_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max50_03.png")
+plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, plot_save_path)
 print(f"Plot saved to {plot_save_path}")

@@ -179,26 +179,41 @@ def test_model(model, test_loader):
     return accuracy, avg_loss
 
 # Plot results
-def plot_metrics(prune_percentages, accuracies, baseline_accuracy, save_path):
-    plt.figure(figsize=(8, 5))
+def plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, save_path):
+    plt.figure(figsize=(10, 5))
+
+    # Plot Accuracy
+    plt.subplot(1, 2, 1)
     plt.plot(prune_percentages, accuracies, marker='o', label='Pruned Model Accuracy')
     plt.axhline(y=baseline_accuracy, color='r', linestyle='--', label='Baseline Accuracy')
-    plt.title("Temporal Test Accuracy vs. Pruning Percentage")
     plt.xlabel("Pruning Percentage (%)")
     plt.ylabel("Accuracy (%)")
+    plt.title("Test Accuracy vs. Temporal Pruning Percentage")
     plt.legend()
     plt.grid(True)
+
+    # Plot Loss
+    plt.subplot(1, 2, 2)
+    plt.plot(prune_percentages, losses, marker='o', label='Pruned Model Loss')
+    plt.axhline(y=baseline_loss, color='r', linestyle='--', label='Baseline Loss')
+    plt.xlabel("Pruning Percentage (%)")
+    plt.ylabel("Loss")
+    plt.title("Test Loss vs. Pruning Percentage")
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
     plt.savefig(save_path)
-    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     num_classes = len(test_dataset.class_to_idx)
     model = TemporalModel(num_classes=num_classes).to(device)
-    model.load_state_dict(torch.load(MODEL_PATH))
+    model.load_state_dict(torch.load(MODEL_LOAD_PATH))
 
     # Evaluate baseline accuracy
     print("Evaluating baseline model...")
-    baseline_accuracy, _ = test_model(model, test_loader)
+    baseline_accuracy, baseline_loss = test_model(model, test_loader)
     
     # Save baseline accuracy
     with open(CSV_PATH, mode="a", newline="") as file:
@@ -212,6 +227,7 @@ if __name__ == "__main__":
     
     prune_percentages = []
     accuracies = []
+    losses = []
     total_pruned_percentage = 0
     retrain_epochs = 5
 
@@ -235,9 +251,10 @@ if __name__ == "__main__":
         torch.save(model.state_dict(), model_save_path)
         print(f"Pruned model saved at: {model_save_path}")
         
-        accuracy, _ = test_model(model, test_loader)
+        accuracy, loss = test_model(model, test_loader)
         prune_percentages.append(total_pruned_percentage * 100)
         accuracies.append(accuracy)
+        losses.append(loss)
         
         with open(CSV_PATH, mode="a", newline="") as file:
             writer = csv.writer(file)
@@ -247,6 +264,6 @@ if __name__ == "__main__":
     print("Evaluating final pruned model on test data...")
     final_accuracy, final_loss = test_model(model, test_loader)
 
-    plot_save_path = os.path.join(BASE_DIR, "plots", f"{args.run_id}_temporal_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max20_03.png")
-    plot_metrics(prune_percentages, accuracies, baseline_accuracy, plot_save_path)
+    plot_save_path = os.path.join(BASE_DIR, "plots", "pruned_temporal" , f"{args.run_id}_temporal_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max20_03.png")
+    plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, baseline_loss, plot_save_path)
     print(f"Plot saved to {plot_save_path}")

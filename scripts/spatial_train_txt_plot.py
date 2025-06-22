@@ -39,7 +39,7 @@ TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt"
 MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{args.run_id}_sssspatial_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-CSV_PATH = os.path.join(RESULTS_DIR, "pruning_accuracies.csv")
+CSV_PATH = os.path.join(RESULTS_DIR, "spatial_pruning_accuracies.csv")
 
 # Transformations
 transform = transforms.Compose([
@@ -178,27 +178,35 @@ with open(CSV_PATH, mode="a", newline="") as file:
     writer = csv.writer(file)
     writer.writerow([run_id, 0.0, test_accuracy, "unpruned"])
 
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(14, 6))
 
 # Loss plots
-plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', linestyle='-', marker='o')
-plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss', linestyle='--', marker='x')
+# Subplot 1: Loss
+plt.subplot(1, 2, 2)  # 1 row, 2 columns, 2nd plot
+plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', marker='o')
+plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss', marker='o')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+plt.grid(True)
 
 # Accuracy plots
-plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', linestyle='-', marker='^')
-plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Val Accuracy', linestyle='--', marker='s')
+plt.subplot(1, 2, 1)  # 1 row, 2 columns, 1st plot
+plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', marker='o')
+plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Val Accuracy', marker='o')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy (%)')
+plt.title('Training and Validation Accuracy')
+plt.legend()
+plt.grid(True)
 
-# Add grid, title, labels, and legend
-plt.grid(True, linestyle='--', alpha=0.7)
-plt.title('Training and Validation Loss & Accuracy', fontsize=14)
-plt.xlabel('Epoch', fontsize=12)
-plt.ylabel('Value', fontsize=12)
-plt.legend(fontsize=10)
+# Add test accuracy at the bottom
+plt.suptitle(f"Test Accuracy: {test_accuracy:.2f}%", fontsize=14, y=0.95)
 
-# Annotate test accuracy
-test_text = f"Test Accuracy: {test_accuracy:.2f}%"
-plt.gcf().text(0.5, 0.01, test_text, fontsize=12, ha='center', va='bottom', color='blue')
-
-# Save the combined plot
-plt.tight_layout()
+# Save and display the plot
+plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to fit the test accuracy text
+combined_plot_path = os.path.join(BASE_DIR, "plots", "unpruned_spatial", f"{args.run_id}_temporal_combined_plot.png")
+plt.savefig(combined_plot_path)
+plt.show()
 plt.savefig(os.path.join(BASE_DIR, "spatial_combined_plot_lr5e4.png"))
