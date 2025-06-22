@@ -146,7 +146,6 @@ for epoch in range(num_epochs):
     # Early stopping
     if val_loss < best_val_loss:
         best_val_loss = val_loss
-        patience_counter = 0
         torch.save(model.state_dict(), MODEL_SAVE_PATH)
         print(f"Model saved to {MODEL_SAVE_PATH}")
 

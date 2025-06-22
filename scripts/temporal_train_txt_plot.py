@@ -14,20 +14,32 @@ import torch.nn as nn
 from tqdm import tqdm
 import json
 import matplotlib.pyplot as plt
-import gc
+import argparse
+import csv
+
+# Argument parser for run_id
+'''
+run by typing python spatial_train_txt_plot.py --run_id run1, run2, run3... 
+'''
+parser = argparse.ArgumentParser()
+parser.add_argument('--run_id', type=str, required=True, help='Unique ID for this run (e.g., run1, run2, ...)')
+args = parser.parse_args()
+run_id = args.run_id
 
 # Hyperparameters
 batch_size = 25
 learning_rate = 5e-4 #1e-4
 num_epochs = 25
-early_stopping_patience = 100
 
 # Paths
 FLOW_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"temporal_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"{args.run_id}_ttemporal_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+os.makedirs(RESULTS_DIR, exist_ok=True)
+CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
 
 # Dataset transforms
 transform = Compose([
@@ -60,27 +72,21 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print(f"Running on: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
 num_classes = len(train_dataset.class_to_idx)
-
-gc.collect()
-torch.cuda.empty_cache()
 model = TemporalModel(num_classes=num_classes).to(device)
 
 # Training setup
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = optim.AdamW(model.parameters(), weight_decay=1e-4, lr=learning_rate)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)
 
 # Early stopping variables
 best_val_loss = float('inf')
-patience_counter = 0
 
 # To store accuracy and loss for plotting
 train_losses = []
 val_losses = []
 train_accuracies = []
 val_accuracies = []
-gc.collect()
-torch.cuda.empty_cache()
 
 # Training loop
 for epoch in range(num_epochs):
@@ -143,14 +149,8 @@ for epoch in range(num_epochs):
 
     if avg_val_loss < best_val_loss:
         best_val_loss = avg_val_loss
-        patience_counter = 0
         torch.save(model.state_dict(), MODEL_SAVE_PATH)
-        print("Saved best model.")
-    else:
-        patience_counter += 1
-        if patience_counter >= early_stopping_patience:
-            print("Early stopping triggered.")
-            break
+        print(f"Model saved to {MODEL_SAVE_PATH}")
 
 # Testing phase
 model.eval()
@@ -178,6 +178,10 @@ test_accuracy = 100 * correct / total
 avg_test_loss = test_loss / len(test_loader)
 
 print(f"Test Loss: {avg_test_loss:.4f}, Test Acc: {test_accuracy:.2f}%")
+
+with open(CSV_PATH, mode="a", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow([run_id, 0.0, test_accuracy, "unpruned"])
 
 plt.figure(figsize=(14, 6))  # Wider figure for side-by-side plots
 

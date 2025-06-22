@@ -184,8 +184,12 @@ while total_pruned_percentage < max_prune_percentage:
     print(f"Retraining after pruning {total_pruned_percentage * 100:.2f}%...")
     retrain_model(model, train_loader, val_loader, retrain_epochs)
     
-    torch.save(model.state_dict(), PRUNED_MODEL_SAVE_PATH)
-    print(f"Pruned model saved at: {PRUNED_MODEL_SAVE_PATH}")
+    pruned_percent_str = f"{total_pruned_percentage * 100:.2f}".replace('.', '_')
+    model_save_name = f"{run_id}_spatial_pruned_{pruned_percent_str}percent.pth"
+    model_save_path = os.path.join(BASE_DIR, "saved_models", model_save_name)
+
+    torch.save(model.state_dict(), model_save_path)
+    print(f"Pruned model saved at: {model_save_path}")
     
     accuracy, _ = test_model(model, test_loader)
     prune_percentages.append(total_pruned_percentage * 100)

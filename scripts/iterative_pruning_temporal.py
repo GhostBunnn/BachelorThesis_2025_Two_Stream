@@ -14,14 +14,30 @@ from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import csv
+import argparse
+
+'''
+run by typing python iterative_pruning_spatialplot.py --run_id run1, run2, run3...
+'''
+parser = argparse.ArgumentParser()
+parser.add_argument('--run_id', type=str, required=True, help='Unique ID for this run (e.g., run1, run2, ...)')
+args = parser.parse_args()
+run_id = args.run_id
 
 # Paths
-MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "temporal_model_lr0.0005_bs25_epochs25_03.pth")
+
+#Adjust to same run unpruned model
+MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", f"{run_id}_ttemporal_model_lr0.0005_bs25_epochs25_03.pth")
+
 DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "iterative_temporal_pruned_model.pth")
+PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"{run_id}_iterative_temporal_pruned_model.pth")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+os.makedirs(RESULTS_DIR, exist_ok=True)
+CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
 
 # Dataset transforms
 transform = Compose([
@@ -120,6 +136,7 @@ def prune_channels(model, prune_percentage):
 def retrain_model(model, train_loader, val_loader, epochs):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=0.0001)
+    l1_lambda = 1e-5
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -128,6 +145,12 @@ def retrain_model(model, train_loader, val_loader, epochs):
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            # L1 regularization
+            l1_penalty = 0.0
+            for name, param in model.named_parameters():
+                if "bn" in name and "weight" in name:  # Target BatchNorm γ
+                    l1_penalty += param.abs().sum()
+            loss += l1_lambda * l1_penalty
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
@@ -176,6 +199,11 @@ if __name__ == "__main__":
     # Evaluate baseline accuracy
     print("Evaluating baseline model...")
     baseline_accuracy, _ = test_model(model, test_loader)
+    
+    # Save baseline accuracy
+    with open(CSV_PATH, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([run_id, 0.0, baseline_accuracy, "baseline unpruned"])
 
     # Iterative pruning 
     max_prune_percentage = 0.2  # pruning limit
@@ -185,7 +213,7 @@ if __name__ == "__main__":
     prune_percentages = []
     accuracies = []
     total_pruned_percentage = 0
-    retrain_epochs = 10
+    retrain_epochs = 5
 
     while total_pruned_percentage < max_prune_percentage:
         if total_pruned_percentage + (1 - current_remaining_percentage) > max_prune_percentage:
@@ -200,17 +228,25 @@ if __name__ == "__main__":
         print(f"Retraining after pruning {total_pruned_percentage * 100:.2f}%...")
         retrain_model(model, train_loader, val_loader, retrain_epochs)
         
-        torch.save(model.state_dict(), PRUNED_MODEL_SAVE_PATH)
-        print(f"Pruned model saved at: {PRUNED_MODEL_SAVE_PATH}")
+        pruned_percent_str = f"{total_pruned_percentage * 100:.2f}".replace('.', '_')
+        model_save_name = f"{run_id}_temporal_pruned_{pruned_percent_str}percent.pth"
+        model_save_path = os.path.join(BASE_DIR, "saved_models", model_save_name)
+
+        torch.save(model.state_dict(), model_save_path)
+        print(f"Pruned model saved at: {model_save_path}")
         
         accuracy, _ = test_model(model, test_loader)
         prune_percentages.append(total_pruned_percentage * 100)
         accuracies.append(accuracy)
+        
+        with open(CSV_PATH, mode="a", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([run_id, total_pruned_percentage * 100, accuracy, "pruned"])
 
 
     print("Evaluating final pruned model on test data...")
     final_accuracy, final_loss = test_model(model, test_loader)
 
-    plot_save_path = os.path.join(BASE_DIR, "plots", f"temporal_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max20_03.png")
+    plot_save_path = os.path.join(BASE_DIR, "plots", f"{args.run_id}_temporal_iterative_pruning{prune_step*100}_lr0.0001_retrain{retrain_epochs}_max20_03.png")
     plot_metrics(prune_percentages, accuracies, baseline_accuracy, plot_save_path)
     print(f"Plot saved to {plot_save_path}")
