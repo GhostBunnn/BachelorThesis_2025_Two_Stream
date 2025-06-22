@@ -29,13 +29,13 @@ run_id = args.run_id
 #MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "74.64%acc_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
 
 #Adjust to same run unpruned model
-MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", f"{run_id}_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
+MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
 
 DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"{run_id}_iterative_spatial_pruned_model.pth")
+PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_iterative_spatial_pruned_model.pth")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 CSV_PATH = os.path.join(RESULTS_DIR, "pruning_accuracies.csv")
@@ -186,7 +186,7 @@ while total_pruned_percentage < max_prune_percentage:
     
     pruned_percent_str = f"{total_pruned_percentage * 100:.2f}".replace('.', '_')
     model_save_name = f"{run_id}_spatial_pruned_{pruned_percent_str}percent.pth"
-    model_save_path = os.path.join(BASE_DIR, "saved_models", model_save_name)
+    model_save_path = os.path.join(BASE_DIR, "saved_models", "spatial", model_save_name)
 
     torch.save(model.state_dict(), model_save_path)
     print(f"Pruned model saved at: {model_save_path}")

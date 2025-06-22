@@ -19,7 +19,7 @@ import csv
 
 # Argument parser for run_id
 '''
-run by typing python spatial_train_txt_plot.py --run_id run1, run2, run3... 
+run by typing python temporal_train_txt_plot.py --run_id run1, run2, run3... 
 '''
 parser = argparse.ArgumentParser()
 parser.add_argument('--run_id', type=str, required=True, help='Unique ID for this run (e.g., run1, run2, ...)')
@@ -36,7 +36,7 @@ FLOW_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", f"{args.run_id}_ttemporal_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{args.run_id}_ttemporal_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
