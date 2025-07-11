@@ -28,7 +28,7 @@ run_id = args.run_id
 # Paths
 
 #Adjust to same run unpruned model
-MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_ttemporal_model_lr0.0005_bs25_epochs25_03.pth")
+MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_temporal_unpruned_lr0.0005_bs25_epochs25_03.pth")
 
 DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
@@ -221,8 +221,8 @@ if __name__ == "__main__":
         writer.writerow([run_id, 0.0, baseline_accuracy, "baseline unpruned"])
 
     # Iterative pruning 
-    max_prune_percentage = 0.2  # pruning limit
-    prune_step = 0.08  # prune 8% at each step
+    max_prune_percentage = 0.5  # pruning limit
+    prune_step = 0.04  # prune 8% at each step
     current_remaining_percentage = 1.0
     
     prune_percentages = []

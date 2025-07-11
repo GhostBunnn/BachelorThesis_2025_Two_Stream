@@ -29,7 +29,7 @@ run_id = args.run_id
 #MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "74.64%acc_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
 
 #Adjust to same run unpruned model
-MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
+MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_spatial_unpruned_lr0.0001_bs25_epochs25_03.pth")
 
 DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
@@ -182,7 +182,7 @@ with open(CSV_PATH, mode="a", newline="") as file:
     writer = csv.writer(file)
     writer.writerow([run_id, 0.0, baseline_accuracy, "baseline unpruned"])
 
-prune_percentages = []
+prune_percentages = []  
 accuracies = []
 losses = []
 total_pruned_percentage = 0

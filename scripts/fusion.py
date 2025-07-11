@@ -17,16 +17,59 @@ from models.spatial_model import load_spatial_model
 from models.temporal_model import TemporalModel
 import numpy as np
 import torch.nn as nn
+import argparse
 import joblib
+import csv
+
+
+def find_file_with_prefix(directory, prefix):
+    for filename in os.listdir(directory):
+        if filename.startswith(prefix) and (filename.endswith(".pth") or filename.endswith(".joblib")):
+            return os.path.join(directory, filename)
+    raise FileNotFoundError(f"No file found starting with '{prefix}' in {directory}")
+
+'''
+Running commands:
+
+#unpruned representations
+python fusion.py --run_id run1
+
+#unpruned softmax
+python fusion.py --run_id run1 --use_softmax
+
+#possible pruned amounts: 4.00, 7.84, 11.53, 15.07, 18.64, 21.72, 24.86, 27.86
+#in order to properly recognize the models, the emoung should be: 4_00percent, 11_53percent, etc
+
+#pruned representations
+python fusion.py --run_id run1 --use_pruned --prune_amount 4_00percent
+
+#pruned softmax
+python fusion.py --run_id run2 --use_pruned --prune_amount 7_84percent --use_softmax
+'''
+parser = argparse.ArgumentParser(description="Two-stream SVM fusion")
+parser.add_argument('--use_softmax', action='store_true', help='Apply softmax to the features before fusion')
+parser.add_argument('--use_pruned', action='store_true', help='Use pruned spatial and temporal models')
+parser.add_argument('--run_id', type=str, required=True, help='Model run id (e.g., run1)')
+parser.add_argument('--prune_amount', type=str, default=None,
+                    help='Amount of pruning (e.g., 4_00) — required if using pruned models')
+args = parser.parse_args()
+if args.use_pruned and not args.prune_amount:
+    parser.error("--prune_amount is required when using pruned models")
+SHOW_SOFTMAX = args.use_softmax
+fusion_type = "softmax" if SHOW_SOFTMAX else "representations"
+model_variant = "pruned" if args.use_pruned else "unpruned"
 
 # Paths
-# unpruned
-SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "spatial_model_lr0.0001_bs25_epochs25_03.pth")
-TEMPORAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "temporal_model_lr0.0005_bs25_epochs25_03.pth")
-
-# pruned
-# SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "better2best_iterative_spatial_pruned_model.pth")
-# TEMPORAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "Biterative_temporal_pruned_model.pth")
+if args.use_pruned: # pruned
+    SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{args.run_id}_spatial_pruned_{args.prune_amount}.pth")
+    TEMPORAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{args.run_id}_temporal_pruned_{args.prune_amount}.pth")
+else: # unpruned
+    model_path = os.path.join(BASE_DIR, "saved_models", "spatial")
+    prefix = f"{args.run_id}_spatial_{model_variant}"
+    SPATIAL_MODEL_PATH = find_file_with_prefix(model_path, prefix)
+    model_path = os.path.join(BASE_DIR, "saved_models", "temporal")
+    prefix = f"{args.run_id}_temporal_{model_variant}"
+    TEMPORAL_MODEL_PATH = find_file_with_prefix(model_path, prefix)
 
 SPATIAL_DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 TEMPORAL_DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
@@ -35,11 +78,8 @@ TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt"
 
 # Hyperparameters
 batch_size = 32
-SHOW_SOFTMAX = False
-if SHOW_SOFTMAX:
-    SVM_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "Softmax_fusion_svm.joblib")
-else:
-    SVM_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "representations_fusion_svm.joblib")
+prune_str = f"_pruned_{args.prune_amount}" if args.use_pruned else "unpruned"
+SVM_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "fusion", f"{fusion_type}", f"{args.run_id}_{prune_str}_{fusion_type}_fusion_svm.joblib")
 
 # Transformations
 spatial_transform = transforms.Compose([
@@ -64,16 +104,8 @@ temporal_loader = DataLoader(temporal_dataset, batch_size=batch_size, shuffle=Fa
 # Load Models
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_spatial_model_with_dropout(num_classes):
-    model = load_spatial_model(num_classes)
-    model.fc = nn.Sequential(
-        nn.Dropout(p=0.5),
-        nn.Linear(model.fc.in_features, num_classes)
-    )
-    return model
-
 # Spatial Stream
-spatial_model = load_spatial_model_with_dropout(len(spatial_dataset.class_to_idx))
+spatial_model = load_spatial_model(len(spatial_dataset.class_to_idx))
 spatial_model.load_state_dict(torch.load(SPATIAL_MODEL_PATH))
 spatial_model = spatial_model.to(device)
 spatial_model.eval()
@@ -84,12 +116,16 @@ temporal_model.load_state_dict(torch.load(TEMPORAL_MODEL_PATH))
 temporal_model = temporal_model.to(device)
 temporal_model.eval()
 
-training = False
+svm_path = os.path.join(BASE_DIR, "saved_models", "fusion", f"{fusion_type}")
+prefix = f"{args.run_id}_{prune_str}_{fusion_type}"
+
 # Load or Train SVM
-if os.path.exists(SVM_MODEL_PATH):
+try:
+    existing_model_path = find_file_with_prefix(svm_path, prefix)
     print("Loading pre-trained SVM model...")
-    fusion_svm = joblib.load(SVM_MODEL_PATH)
-else:
+    fusion_svm = joblib.load(existing_model_path)
+    training = False
+except FileNotFoundError:
     print("Training a new SVM model...")
     training = True
     features = []
@@ -144,6 +180,7 @@ else:
     fusion_svm.fit(features, labels)
 
     # Save SVM model
+    os.makedirs(os.path.dirname(SVM_MODEL_PATH), exist_ok=True)
     joblib.dump(fusion_svm, SVM_MODEL_PATH)
     print(f"SVM model saved to {SVM_MODEL_PATH}")
 
@@ -210,3 +247,27 @@ if training: # include accuracy in name
         print(f"Renamed model file to: {new_filename}")
     else:
         print("Warning: initial model file not found, cannot rename.")
+        
+# Logging to CSV
+# will add the accuracy even if the fused model's accuracy is already saved
+csv_path = os.path.join(BASE_DIR, "results", "fusion_results_" + f"{fusion_type}.csv")
+os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+log_data = {
+    "run_id": args.run_id,
+    "fusion_type": fusion_type,
+    "pruned": "pruned" if args.use_pruned else "unpruned",
+    "prune_amount": args.prune_amount if args.use_pruned else "N/A",
+    "test_accuracy": round(test_accuracy, 2),
+    "svm_model_path": new_filename if training else existing_model_path
+}
+
+write_header = not os.path.exists(csv_path)
+
+with open(csv_path, mode='a', newline='') as csvfile:
+    writer = csv.DictWriter(csvfile, fieldnames=log_data.keys())
+    if write_header:
+        writer.writeheader()
+    writer.writerow(log_data)
+
+print(f"Logged results to: {csv_path}")

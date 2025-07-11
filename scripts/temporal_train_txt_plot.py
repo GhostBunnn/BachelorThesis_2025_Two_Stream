@@ -36,10 +36,14 @@ FLOW_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
 VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
 TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{args.run_id}_ttemporal_model_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{args.run_id}_temporal_unpruned_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}_03.pth")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
+if not os.path.exists(CSV_PATH):
+    with open(CSV_PATH, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Run ID", "Percentage Pruned", "Accuracy (%)", "Model Type"])
 
 # Dataset transforms
 transform = Compose([
