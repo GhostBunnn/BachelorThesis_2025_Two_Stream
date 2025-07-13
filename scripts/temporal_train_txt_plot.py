@@ -43,7 +43,7 @@ CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
 if not os.path.exists(CSV_PATH):
     with open(CSV_PATH, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Run ID", "Percentage Pruned", "Accuracy (%)", "Model Type"])
+        writer.writerow(["Run ID", "Percentage Pruned", "Accuracy", "Model Type"])
 
 # Dataset transforms
 transform = Compose([
