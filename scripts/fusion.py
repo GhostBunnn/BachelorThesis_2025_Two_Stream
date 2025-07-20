@@ -38,6 +38,7 @@ python fusion.py --run_id run1
 python fusion.py --run_id run1 --use_softmax
 
 #possible pruned amounts: 4.00, 7.84, 11.53, 15.07, 18.64, 21.72, 24.86, 27.86
+# 30.75, 33.52, 36.18, 38.73, 41.18, 43.53, 45.79, 47.96, 50.04
 #in order to properly recognize the models, the emoung should be: 4_00percent, 11_53percent, etc
 
 #pruned representations

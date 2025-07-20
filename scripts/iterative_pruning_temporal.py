@@ -209,7 +209,7 @@ def plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, basel
 if __name__ == "__main__":
     num_classes = len(test_dataset.class_to_idx)
     model = TemporalModel(num_classes=num_classes).to(device)
-    model.load_state_dict(torch.load(MODEL_LOAD_PATH))
+    model.load_state_dict(torch.load(MODEL_LOAD_PATH, map_location=device))
 
     # Evaluate baseline accuracy
     print("Evaluating baseline model...")
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     retrain_epochs = 5
 
     while total_pruned_percentage < max_prune_percentage:
-        if total_pruned_percentage + (1 - current_remaining_percentage) > max_prune_percentage:
+        if total_pruned_percentage > max_prune_percentage:
             break
         current_prune_percentage = prune_step * current_remaining_percentage
         print(f"Pruning {current_prune_percentage * 100:.2f}% of remaining channels...")

@@ -1,0 +1,203 @@
+import sys
+import os
+import matplotlib.pyplot as plt
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
+import pandas as pd
+from scipy.stats import wilcoxon
+
+base_font_size = 20
+plt.rc('font', size = base_font_size)
+plt.rc('axes', linewidth=3, titlesize = base_font_size+2, labelsize = base_font_size+2)
+plt.rc('xtick', top=True, bottom=True, direction='in')
+plt.rc('ytick', left=True, right=True, direction='in') 
+plt.rc('figure', titlesize=base_font_size+4, dpi=300)
+plt.rc('legend', fontsize=base_font_size-1, title_fontsize=base_font_size-1, frameon=False)
+plt.rc('lines', linewidth=3)
+
+# plotting function
+def plot_function(df, output_path, x_axis, y_axis, pivot_dfs=None, figsize=(12, 18), hspace=0.1):
+    spatial_df = df[df["stream"] == "spatial"]
+    temporal_df = df[df["stream"] == "temporal"]
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=figsize)
+    fig.subplots_adjust(hspace=hspace)
+
+    if y_axis.startswith('Wilcoxon') or y_axis.startswith('Cohen'):
+        ax1.bar(spatial_df["prune_percent"], spatial_df["value"], color='orange', label='Spatial')
+        ax2.bar(temporal_df["prune_percent"], temporal_df["value"], color='blue', label='Temporal')
+        if y_axis.startswith('Wilcox'):
+            ax1.axhline(0.05, color='red', linestyle='--', label='Significance Threshold (p = 0.05)')
+            ax2.axhline(0.05, color='red', linestyle='--', label='Significance Threshold (p = 0.05)')
+        else:
+            ax1.axhline(0.2, color='gray', linestyle='--', label='Small Effect (0.2)')
+            ax1.axhline(0.5, color='orange', linestyle='--', label='Medium Effect (0.5)')
+            ax1.axhline(0.8, color='green', linestyle='--', label='Large Effect (0.8)')
+            ax2.axhline(0.2, color='gray', linestyle='--', label='Small Effect (0.2)')
+            ax2.axhline(0.5, color='orange', linestyle='--', label='Medium Effect (0.5)')
+            ax2.axhline(0.8, color='green', linestyle='--', label='Large Effect (0.8)')
+    elif y_axis.startswith('Mean'):      
+        ax1.errorbar(spatial_df["prune_percent"], spatial_df["mean_accuracy"], yerr=spatial_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='orange', label = 'Spatial')
+        ax2.errorbar(temporal_df["prune_percent"], temporal_df["mean_accuracy"], yerr=temporal_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='blue', label = 'Temporal')
+    elif y_axis.startswith('Accuracy') and pivot_dfs:
+        for run_id, row in pivot_dfs["spatial"].iterrows():
+            ax1.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
+        for run_id, row in pivot_dfs["temporal"].iterrows():
+            ax2.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
+
+    ax2.set_xticks(temporal_df["prune_percent"])
+    ax2.set_xticklabels([f"{x:.2f}" for x in temporal_df["prune_percent"]], rotation=45)
+
+    ax2.set_xlabel(x_axis)
+    ax1.set_ylabel(y_axis)
+    ax2.set_ylabel(y_axis)
+
+    ax1.legend(alignment='left')
+    ax2.legend(alignment='left')
+    ax1.grid(True)
+    ax2.grid(True)
+
+    plt.savefig(output_path, bbox_inches='tight', pad_inches=0.1)
+    plt.show()
+    plt.close()
+    
+# combine csvs
+def load_and_prepare_data(spatial_path, temporal_path):
+    spatial_df = pd.read_csv(spatial_path, skiprows=1, names=["run_id", "prune_percent", "accuracy", "label"])
+    temporal_df = pd.read_csv(temporal_path, skiprows=1, names=["run_id", "prune_percent", "accuracy", "label"])
+
+    spatial_df["stream"] = "spatial"
+    temporal_df["stream"] = "temporal"
+    combined_df = pd.concat([spatial_df, temporal_df], ignore_index=True)
+
+    combined_df = combined_df[combined_df["label"].isin(["baseline unpruned", "pruned", "unpruned"])]
+    combined_df["prune_percent"] = combined_df["prune_percent"].astype(float)
+    
+    pivot_dfs = {
+        stream: df[df["stream"] == stream].pivot_table(
+            index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean"
+        ).sort_index(axis=1)
+        for stream, df in combined_df.groupby("stream")
+    }
+
+    return combined_df, pivot_dfs
+
+# compute wilcoxon
+def run_wilcoxon_by_stream(df, pivot_dfs, baseline_col=0.0):
+    results = []
+
+    for stream in df["stream"].unique():
+        pivot_df = pivot_dfs[stream]
+        for col in pivot_df.columns:
+            if col == baseline_col:
+                continue
+            try:
+                stat, p = wilcoxon(pivot_df[baseline_col], pivot_df[col])
+                results.append({
+                    "stream": stream,
+                    "prune_percent": col,
+                    "W_statistic": stat,
+                    "value": p
+                })
+            except ValueError as e:
+                print(f"Wilcoxon test failed for stream={stream}, prune={col}: {e}")
+    
+    return pd.DataFrame(results).dropna()
+
+
+# compute cohen's d
+def compute_cohens_d_by_stream(df, pivot_dfs, baseline_col=0.0):
+    def cohens_d(x, y):
+        diff = x - y
+        return diff.mean() / diff.std(ddof=1)
+
+    results = []
+
+    for stream in df["stream"].unique():
+        pivot_df = pivot_dfs[stream]
+        baseline_scores = pivot_df[baseline_col]
+
+        for col in pivot_df.columns:
+            if col == baseline_col:
+                continue
+            try:
+                d = cohens_d(pivot_df[col], baseline_scores)
+                results.append({
+                    "stream": stream,
+                    "prune_percent": col,
+                    "value": d
+                })
+            except Exception as e:
+                print(f"Cohen's d failed for stream={stream}, prune={col}: {e}")
+    
+    return pd.DataFrame(results).dropna()
+
+
+def compute_mean_accuracy_by_stream(pivot_dfs):
+    summary_rows = []
+
+    for stream, pivot_df in pivot_dfs.items():
+        mean_accuracies = pivot_df.mean()
+        std_accuracies = pivot_df.std()
+
+        for prune_percent in mean_accuracies.index:
+            summary_rows.append({
+                "stream": stream,
+                "prune_percent": prune_percent,
+                "mean_accuracy": mean_accuracies[prune_percent],
+                "std_dev": std_accuracies[prune_percent]
+            })
+
+    return pd.DataFrame(summary_rows).sort_values(by=["stream", "prune_percent"])
+
+
+#####################################
+# begin here
+#####################################
+spatial_csv_path = os.path.join(BASE_DIR, "results", "spatial_pruning_accuracies.csv")
+temporal_csv_path = os.path.join(BASE_DIR, "results", "temporal_pruning_accuracies.csv")
+
+combined_df, pivot_df = load_and_prepare_data(spatial_csv_path, temporal_csv_path)
+wilcoxon_df = run_wilcoxon_by_stream(combined_df, pivot_df)
+cohens_d_df = compute_cohens_d_by_stream(combined_df, pivot_df)
+mean_accuracy_df = compute_mean_accuracy_by_stream(pivot_df)
+
+
+#####################################
+# Wilcoxon 
+for stream in wilcoxon_df["stream"].unique():
+    stream_df = wilcoxon_df[wilcoxon_df["stream"] == stream]
+    out_path = os.path.join(BASE_DIR, "results", f"{stream}_wilcoxon_results.csv")
+    stream_df.to_csv(out_path, index=False)
+    print(f"Wilcoxon results saved to: {out_path}")
+
+wilcoxon_plot_path = os.path.join(BASE_DIR, "results", "wilcoxon_pruning_plot.png")
+plot_function(wilcoxon_df, wilcoxon_plot_path, "Pruning Percentage", "Wilcoxon Test p-values")
+
+#####################################
+# Cohen's d
+for stream in cohens_d_df["stream"].unique():
+    stream_df = cohens_d_df[cohens_d_df["stream"] == stream]
+    out_path = os.path.join(BASE_DIR, "results", f"{stream}_cohens_d_results.csv")
+    stream_df.to_csv(out_path, index=False)
+    print(f"Cohen's d results saved to: {out_path}")
+
+cohen_plot_path = os.path.join(BASE_DIR, "results", "cohens_d_plot.png")
+plot_function(cohens_d_df, cohen_plot_path, x_axis="Pruning Percentage", y_axis="Cohen's d")
+
+#####################################
+# Mean Accuracy
+for stream in mean_accuracy_df["stream"].unique():
+    stream_df = mean_accuracy_df[mean_accuracy_df["stream"] == stream]
+    out_path = os.path.join(BASE_DIR, "results", f"{stream}_mean_accuracy.csv")
+    stream_df.to_csv(out_path, index=False)
+    print(f"Mean accuracy summary saved to: {out_path}")
+
+mean_accuracy_plot_path = os.path.join(BASE_DIR, "results", "mean_accuracy_plot.png")
+plot_function(mean_accuracy_df, mean_accuracy_plot_path, x_axis="Pruning Percentage", y_axis="Mean Accuracy [%]")
+
+####################################
+# Accuracy trend
+run_plot_path = os.path.join(BASE_DIR, "results", "per_run_accuracy_plot.png")
+plot_function(df=combined_df, output_path=run_plot_path, x_axis="Pruning Percentage", y_axis="Accuracy Trends", pivot_dfs=pivot_df)

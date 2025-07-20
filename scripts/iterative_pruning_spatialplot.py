@@ -189,7 +189,7 @@ total_pruned_percentage = 0
 retrain_epochs = 5
 
 while total_pruned_percentage < max_prune_percentage:
-    if total_pruned_percentage + (1 - current_remaining_percentage) > max_prune_percentage:
+    if total_pruned_percentage > max_prune_percentage:
         break
     current_prune_percentage = prune_step * current_remaining_percentage
     print(f"Pruning {current_prune_percentage * 100:.2f}% of remaining channels...")

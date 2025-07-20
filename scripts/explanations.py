@@ -16,6 +16,19 @@ from PIL import Image
 import argparse
 import csv
 
+'''
+To run this code, us the commands:
+
+#unpruned representations
+python explanations.py --run_id run1
+
+#pruned representations
+# possible pruning values (up to 50%): 4.00, 7.84, 11.53, 15.07, 18.46, 21.72, 24.86, 
+# 27.86, 30.75, 33.52, 36.18, 38.73, 41.18, 43.53, 45.79, 47.96, 50.04
+
+python explanations.py --run_id run1 --use_pruned --prune_amount 4_00percent
+'''
+
 def find_file_with_prefix(directory, prefix):
     for filename in os.listdir(directory):
         if filename.startswith(prefix) and (filename.endswith(".pth")):
@@ -188,12 +201,13 @@ if __name__ == "__main__":
     parser.add_argument('--use_pruned', action='store_true', help='Use pruned spatial and temporal models')
     parser.add_argument('--run_id', type=str, required=True, help='Model run id (e.g., run1)')
     parser.add_argument('--prune_amount', type=str, default=None,
-                        help='Amount of pruning (e.g., 4_00) — required if using pruned models')
+                        help='Amount of pruning (e.g. 4_00percent) — required if using pruned models')
     args = parser.parse_args()
     if args.use_pruned and not args.prune_amount:
         parser.error("--prune_amount is required when using pruned models")
     model_variant = "pruned" if args.use_pruned else "unpruned"
-    
+    if args.use_pruned != True:
+        args.prune_amount = 'unpruned'
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -241,14 +255,3 @@ if __name__ == "__main__":
 
     save_average_across_videos(global_saliency, os.path.join(BASE_DIR, "plots", "saliency_maps", f"{args.run_id}", f"{args.prune_amount}", "spatial" "spatial_summary"))
     save_average_across_videos(global_temporal_saliency, os.path.join(BASE_DIR, "plots", "saliency_maps", f"{args.run_id}", f"{args.prune_amount}", "temporal", "temporal_summary"))
-    
-    # Test only one specific video
-    # test_video = "v_ApplyEyeMakeup_g15_c01"  # Replace with an actual folder name
-
-    # global_saliency = []
-
-    # full_video_path = os.path.join(spatial_data_dir, test_video)
-    # if not os.path.isdir(full_video_path):
-    #     print(f"Folder '{full_video_path}' not found. Please check the name.")
-    # else:
-    #     process_video(test_video, 'spatial', spatial_model, spatial_transform, spatial_data_dir, device, global_saliency)

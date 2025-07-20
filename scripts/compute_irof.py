@@ -16,10 +16,17 @@ import torch.nn as nn
 from tqdm import tqdm
 import matplotlib
 from models.spatial_model import load_spatial_model
+import argparse
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(script_dir, "class_mapping.json"), "r") as f:
     class_mapping = json.load(f)
+    
+def find_file_with_prefix(directory, prefix):
+    for filename in os.listdir(directory):
+        if filename.startswith(prefix) and (filename.endswith(".pth")):
+            return os.path.join(directory, filename)
+    raise FileNotFoundError(f"No file found starting with '{prefix}' in {directory}")
 
 def load_spatial_model_with_dropout(num_classes, checkpoint_path, device):
     model = load_spatial_model(num_classes)
@@ -186,16 +193,39 @@ def process_saliency_maps(saliency_root, model_path, overlay_dir, irof_dir, devi
             tqdm.write(f"Finished {video_folder} (mean AUC: {mean_auc:.4f})")
 
 def main():
-    import argparse
+    parser = argparse.ArgumentParser(description="Two-stream IROF Scores")
+    parser.add_argument('--use_pruned', action='store_true', help='Use pruned spatial and temporal models')
+    parser.add_argument('--run_id', type=str, required=True, help='Model run id (e.g., run1)')
+    parser.add_argument('--prune_amount', type=str, default=None,
+                        help='Amount of pruning (e.g. 4_00percent) — required if using pruned models')
+    args = parser.parse_args()
+    if args.use_pruned and not args.prune_amount:
+        parser.error("--prune_amount is required when using pruned models")
+    model_variant = "pruned" if args.use_pruned else "unpruned"
+    if args.use_pruned != True:
+        args.prune_amount = 'unpruned'
+    
+    if args.use_pruned: # pruned
+        SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{args.run_id}_spatial_pruned_{args.prune_amount}.pth")
+        TEMPORAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{args.run_id}_temporal_pruned_{args.prune_amount}.pth")
+    else: # unpruned
+        model_path = os.path.join(BASE_DIR, "saved_models", "spatial")
+        prefix = f"{args.run_id}_spatial_{model_variant}"
+        SPATIAL_MODEL_PATH = find_file_with_prefix(model_path, prefix)
+        model_path = os.path.join(BASE_DIR, "saved_models", "temporal")
+        prefix = f"{args.run_id}_temporal_{model_variant}"
+        TEMPORAL_MODEL_PATH = find_file_with_prefix(model_path, prefix)
+    
     
     parser = argparse.ArgumentParser(description="Overlay saliency maps with Quantus and compute IROF.")
     parser.add_argument("--saliency_root", required=True, help="Root directory of saliency maps")
     parser.add_argument("--overlay_dir", default="saliency_overlay", help="Where to save overlay images")
     parser.add_argument("--irof_dir", default="irof_plots", help="Where to save IROF plots")
-    
-    model_path = os.path.join(BASE_DIR, "saved_models", "spatial_model_lr0.0001_bs25_epochs25_03.pth")
-
     args = parser.parse_args()
+    
+    
+    
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     process_saliency_maps(
