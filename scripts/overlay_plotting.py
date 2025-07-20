@@ -9,6 +9,7 @@ sys.path.append(BASE_DIR)
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from PIL import Image
+from torchvision import transforms
 
 video_folder = "spatial_v_CliffDiving_g18_c04"
 video_rgb = "v_CliffDiving_g18_c04"
@@ -22,7 +23,7 @@ irof_data = pd.read_csv(irof_path, header=None, names=["frame_file", "irof_auc"]
 irof_data["irof_auc"] = irof_data["irof_auc"].astype(str).str.replace(",", " ").astype(float)
 
 irof_array = pd.to_numeric(np.asarray(irof_data["irof_auc"]), errors='coerce')
-nr_rows = 2
+nr_rows = 3
 
 frame_files = sorted([
     f for f in os.listdir(frames_dir)
@@ -31,7 +32,6 @@ frame_files = sorted([
 nr_frames = sum(1 for f in os.listdir(frames_dir) if f.endswith(".jpg") or f.endswith(".png"))
 
 fig, ax = plt.subplots(nr_rows, nr_frames, figsize=(4*nr_frames, 4*nr_rows), constrained_layout=True)
-# fig, ax = plt.subplots(nr_rows, nr_frames, figsize=(4*nr_frames, 4*nr_rows))
 
 for i, frame_file in enumerate(frame_files):
     # Load images
@@ -42,12 +42,17 @@ for i, frame_file in enumerate(frame_files):
     im = ax[0, i].imshow(frame_img)
     ax[0, i].set_title(f"IROF = {irof_array[i]}")
     ax[0, i].xaxis.set_visible(False)
+    
+    # Show resized frame
+    resized_frame = frame_img.resize((224, 224), resample=Image.BILINEAR)
+    ax[1, i].imshow(resized_frame)
 
     # Show overlay
-    ax[1, i].imshow(overlay_img)
+    ax[2, i].imshow(overlay_img)
     if i!= 0:
         ax[0, i].yaxis.set_visible(False)
         ax[1, i].yaxis.set_visible(False)
+        ax[2, i].yaxis.set_visible(False)
         
 norm = plt.Normalize(vmin=0, vmax = 1)
 sm = cm.ScalarMappable(cmap='jet', norm=norm)

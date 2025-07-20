@@ -1,3 +1,4 @@
+
 import sys
 import os
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ plt.rc('legend', fontsize=base_font_size-1, title_fontsize=base_font_size-1, fra
 plt.rc('lines', linewidth=3)
 
 # plotting function
-def plot_function(df, output_path, x_axis, y_axis, pivot_dfs=None, figsize=(12, 18), hspace=0.1):
+def plot_function(df, output_path, x_axis, y_axis, figsize=(12, 18), hspace=0.1):
     spatial_df = df[df["stream"] == "spatial"]
     temporal_df = df[df["stream"] == "temporal"]
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=figsize)
@@ -40,16 +41,11 @@ def plot_function(df, output_path, x_axis, y_axis, pivot_dfs=None, figsize=(12, 
     elif y_axis.startswith('Mean'):      
         ax1.errorbar(spatial_df["prune_percent"], spatial_df["mean_accuracy"], yerr=spatial_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='orange', label = 'Spatial')
         ax2.errorbar(temporal_df["prune_percent"], temporal_df["mean_accuracy"], yerr=temporal_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='blue', label = 'Temporal')
-    elif y_axis.startswith('Accuracy') and pivot_dfs:
-        for run_id, row in pivot_dfs["spatial"].iterrows():
-            ax1.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
-        for run_id, row in pivot_dfs["temporal"].iterrows():
-            ax2.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
 
     ax2.set_xticks(temporal_df["prune_percent"])
-    ax2.set_xticklabels([f"{x:.2f}" for x in temporal_df["prune_percent"]], rotation=45)
+    ax2.set_xticklabels([f"{x:.2f}" for x in temporal_df["prune_percent"]], rotation=90)
 
-    ax2.set_xlabel(x_axis)
+    ax2.set_xlabel(x_axis, labelpad=20)
     ax1.set_ylabel(y_axis)
     ax2.set_ylabel(y_axis)
 
@@ -72,8 +68,11 @@ def load_and_prepare_data(spatial_path, temporal_path):
     combined_df = pd.concat([spatial_df, temporal_df], ignore_index=True)
 
     combined_df = combined_df[combined_df["label"].isin(["baseline unpruned", "pruned", "unpruned"])]
-    combined_df["prune_percent"] = combined_df["prune_percent"].astype(float)
     
+    # Ensure prune_percent is a valid float
+    combined_df["prune_percent"] = pd.to_numeric(combined_df["prune_percent"], errors='coerce')
+    combined_df = combined_df.dropna(subset=["prune_percent"])
+
     pivot_dfs = {
         stream: df[df["stream"] == stream].pivot_table(
             index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean"
@@ -82,6 +81,7 @@ def load_and_prepare_data(spatial_path, temporal_path):
     }
 
     return combined_df, pivot_dfs
+
 
 # compute wilcoxon
 def run_wilcoxon_by_stream(df, pivot_dfs, baseline_col=0.0):
@@ -166,28 +166,38 @@ mean_accuracy_df = compute_mean_accuracy_by_stream(pivot_df)
 
 #####################################
 # Wilcoxon 
+#####################################
+
 for stream in wilcoxon_df["stream"].unique():
     stream_df = wilcoxon_df[wilcoxon_df["stream"] == stream]
     out_path = os.path.join(BASE_DIR, "results", f"{stream}_wilcoxon_results.csv")
     stream_df.to_csv(out_path, index=False)
     print(f"Wilcoxon results saved to: {out_path}")
 
+# Plot
 wilcoxon_plot_path = os.path.join(BASE_DIR, "results", "wilcoxon_pruning_plot.png")
-plot_function(wilcoxon_df, wilcoxon_plot_path, "Pruning Percentage", "Wilcoxon Test p-values")
+plot_function(wilcoxon_df, wilcoxon_plot_path, "Pruning Ratio [%]", "Wilcoxon p-values")
 
 #####################################
 # Cohen's d
+#####################################
+
+# Save per stream
 for stream in cohens_d_df["stream"].unique():
     stream_df = cohens_d_df[cohens_d_df["stream"] == stream]
     out_path = os.path.join(BASE_DIR, "results", f"{stream}_cohens_d_results.csv")
     stream_df.to_csv(out_path, index=False)
     print(f"Cohen's d results saved to: {out_path}")
 
+# Plot
 cohen_plot_path = os.path.join(BASE_DIR, "results", "cohens_d_plot.png")
-plot_function(cohens_d_df, cohen_plot_path, x_axis="Pruning Percentage", y_axis="Cohen's d")
+plot_function(cohens_d_df, cohen_plot_path, x_axis="Pruning Ratio [%]", y_axis="Cohen's d")
 
 #####################################
-# Mean Accuracy
+# Mean Accuracy vs Pruning Percentage (with Std Dev)
+#####################################
+
+# Save per stream
 for stream in mean_accuracy_df["stream"].unique():
     stream_df = mean_accuracy_df[mean_accuracy_df["stream"] == stream]
     out_path = os.path.join(BASE_DIR, "results", f"{stream}_mean_accuracy.csv")
@@ -195,9 +205,36 @@ for stream in mean_accuracy_df["stream"].unique():
     print(f"Mean accuracy summary saved to: {out_path}")
 
 mean_accuracy_plot_path = os.path.join(BASE_DIR, "results", "mean_accuracy_plot.png")
-plot_function(mean_accuracy_df, mean_accuracy_plot_path, x_axis="Pruning Percentage", y_axis="Mean Accuracy [%]")
+plot_function(mean_accuracy_df, mean_accuracy_plot_path, x_axis="Pruning Ratio [%]", y_axis="Mean Accuracy [%]")
 
 ####################################
 # Accuracy trend
+####################################
+
 run_plot_path = os.path.join(BASE_DIR, "results", "per_run_accuracy_plot.png")
-plot_function(df=combined_df, output_path=run_plot_path, x_axis="Pruning Percentage", y_axis="Accuracy Trends", pivot_dfs=pivot_df)
+
+spatial_df = combined_df[combined_df["stream"] == "spatial"]
+temporal_df = combined_df[combined_df["stream"] == "temporal"]
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=(12, 18))
+fig.subplots_adjust(hspace=0.1)
+
+for run_id, row in pivot_df["spatial"].iterrows():
+    ax1.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
+for run_id, row in pivot_df["temporal"].iterrows():
+    ax2.plot(row.index, row.values, marker='o', markersize=12, label=f"{run_id}")
+
+ax2.set_xticks(temporal_df["prune_percent"])
+ax2.set_xticklabels([f"{x:.2f}" for x in temporal_df["prune_percent"]], rotation=90)
+
+ax2.set_xlabel("Pruning Ratio [%]", labelpad=20)
+ax1.set_ylabel("Accuracy [%]")
+ax2.set_ylabel("Accuracy [%]")
+
+ax1.legend(loc='center left', bbox_to_anchor=(1.01, 0.5), alignment='center', frameon=True, title='Spatial')
+ax2.legend(loc='center left', bbox_to_anchor=(1.01, 0.5), alignment='center', frameon=True, title='Temporal')
+ax1.grid(True)
+ax2.grid(True)
+
+plt.savefig(run_plot_path, bbox_inches='tight', pad_inches=0.1)
+plt.show()
+plt.close()
