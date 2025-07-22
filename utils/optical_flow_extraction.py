@@ -1,4 +1,8 @@
 import os
+import sys
+
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 import cv2
 import torch
 import torchvision
@@ -118,8 +122,7 @@ def process_all_videos(input_root, output_root):
 
 
 if __name__ == "__main__":
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    EXTRACTED_FRAMES_PATH = BASE_DIR / "data" / "extracted_rgb_frames"
-    OPTICAL_FLOW_PATH = BASE_DIR / "data" / "extracted_optical_flow_frames"
+    EXTRACTED_FRAMES_PATH = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
+    OPTICAL_FLOW_PATH = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 
     process_all_videos(EXTRACTED_FRAMES_PATH, OPTICAL_FLOW_PATH)

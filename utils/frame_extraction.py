@@ -1,4 +1,9 @@
 import os
+import sys
+
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
+
 import cv2
 from pathlib import Path
 
@@ -65,9 +70,9 @@ def extract_frames_from_directory(video_dir, output_root, frame_rate=1):
 
 
 if __name__ == "__main__":
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    VIDEO_DATA_PATH = BASE_DIR / "data" / "video_data"
-    EXTRACTED_FRAMES_PATH = BASE_DIR / "data" / "extracted_rgb_frames"
+    # SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{args.run_id}_spatial_pruned_{args.prune_amount}.pth")
+    VIDEO_DATA_PATH = os.path.join(BASE_DIR, "data", "video_data")
+    EXTRACTED_FRAMES_PATH = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 
     FRAME_RATE = 1
 
