@@ -210,7 +210,7 @@ plt.suptitle(f"Test Accuracy: {test_accuracy:.2f}%", fontsize=14, y=0.95)
 
 # Save and display the plot
 plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to fit the test accuracy text
-combined_plot_path = os.path.join(BASE_DIR, "plots", "unpruned_spatial", f"{args.run_id}_temporal_combined_plot.png")
+combined_plot_path = os.path.join(BASE_DIR, "plots", "unpruned_spatial", f"{args.run_id}_spatial_combined_plot.png")
 os.makedirs(os.path.dirname(combined_plot_path), exist_ok=True)
 plt.savefig(combined_plot_path)
 plt.show()
