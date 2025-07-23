@@ -182,7 +182,7 @@ def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
         video_name = video_folder.replace(f"{stream}_", "")
         video_path = os.path.join(saliency_root, video_folder)
         overlay_out = os.path.join(overlay_dir, video_folder)
-        irof_out = os.path.join(irof_dir, video_folder)
+        irof_out = os.path.join(irof_dir)
         os.makedirs(overlay_out, exist_ok=True)
         os.makedirs(irof_out, exist_ok=True)
 
@@ -236,13 +236,25 @@ def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
 
             # IROF
             scores = compute_irof(model, input_tensor, saliency, top_class, device=device)
+            # Save raw IROF confidence curve for this frame
+            raw_curve_path = os.path.join(irof_out, f"irof_raw_scores_{stream}_{video_name}.csv")
+            if not os.path.exists(raw_curve_path):
+                with open(raw_curve_path, "w") as f:
+                    header = "frame_file," + ",".join([f"mask_{int(p)}" for p in np.linspace(0, 100, len(scores))])
+                    f.write(header + "\n")
+            with open(raw_curve_path, "a") as f:
+                f.write(f"{frame_file}," + ",".join(f"{s:.6f}" for s in scores) + "\n")
+
             x = np.linspace(0, 1, len(scores))
             irof_auc = auc(x, scores)
 
             all_scores.append(scores)
-
+            auc_path = os.path.join(irof_out, f"irof_auc_scores_{stream}_{video_name}.csv")
+            if not os.path.exists(auc_path):
+                with open(auc_path, "w") as f:
+                    f.write("frame_file,frame_auc\n")
             # Log per-frame AUC
-            with open(os.path.join(irof_out, "irof_scores.csv"), "a") as f:
+            with open(os.path.join(irof_out, f"irof_auc_scores_{stream}_{video_name}.csv"), "a") as f:
                 f.write(f"{frame_file},{irof_auc:.6f}\n")
 
         # Average curve and AUC per video
@@ -251,19 +263,19 @@ def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
             mean_auc = auc(x, mean_curve)
 
             # Plot only average IROF curve
-            plt.figure()
-            plt.plot(np.linspace(0, 100, len(mean_curve)), mean_curve, marker='o')
-            plt.title(f"Average IROF – {video_folder}")
-            plt.xlabel("% Top Salient Pixels Masked")
-            plt.ylabel("Confidence")
-            plt.grid(True)
-            plt.savefig(os.path.join(irof_out, f"irof_average_{video_folder}.png"))
-            plt.close()
+            # plt.figure()
+            # plt.plot(np.linspace(0, 100, len(mean_curve)), mean_curve, marker='o')
+            # plt.title(f"Average IROF – {video_folder}")
+            # plt.xlabel("% Top Salient Pixels Masked")
+            # plt.ylabel("Confidence")
+            # plt.grid(True)
+            # plt.savefig(os.path.join(irof_out, f"irof_average_{video_folder}.png"))
+            # plt.close()
 
             # with open(os.path.join(irof_out, "avg_irof_score.csv"), "w") as f:
             #     f.write(f"video,{video_folder}\nmean_auc,{mean_auc:.6f}\n")
             with open(global_csv_path, "a") as global_csv:
-                global_csv.write(f"{video_folder},MEAN,{mean_auc:.6f}\n")
+                global_csv.write(f"{video_folder},mean,{mean_auc:.6f}\n")
             tqdm.write(f"Finished {video_folder} (mean AUC: {mean_auc:.4f})")
 
 def main():
