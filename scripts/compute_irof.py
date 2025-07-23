@@ -167,6 +167,7 @@ def overlay_mask_on_image(image, explanation, alpha=0.6, cmap="jet"):
     overlay = (1 - alpha) * image + alpha * heatmap
     return overlay.astype(np.uint8)
 
+
 def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
     global_csv_path = os.path.join(irof_dir, f"all_{stream}_irof_scores.csv")
     os.makedirs(overlay_dir, exist_ok=True)
@@ -260,6 +261,19 @@ def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
         if all_scores:
             mean_curve = np.mean(all_scores, axis=0)
             mean_auc = auc(x, mean_curve)
+
+            # Plot only average IROF curve
+            # plt.figure()
+            # plt.plot(np.linspace(0, 100, len(mean_curve)), mean_curve, marker='o')
+            # plt.title(f"Average IROF – {video_folder}")
+            # plt.xlabel("% Top Salient Pixels Masked")
+            # plt.ylabel("Confidence")
+            # plt.grid(True)
+            # plt.savefig(os.path.join(irof_out, f"irof_average_{video_folder}.png"))
+            # plt.close()
+
+            # with open(os.path.join(irof_out, "avg_irof_score.csv"), "w") as f:
+            #     f.write(f"video,{video_folder}\nmean_auc,{mean_auc:.6f}\n")
             with open(global_csv_path, "a") as global_csv:
                 global_csv.write(f"{video_folder},mean,{mean_auc:.6f}\n")
             tqdm.write(f"Finished {video_folder} (mean AUC: {mean_auc:.4f})")
