@@ -167,7 +167,6 @@ def overlay_mask_on_image(image, explanation, alpha=0.6, cmap="jet"):
     overlay = (1 - alpha) * image + alpha * heatmap
     return overlay.astype(np.uint8)
 
-
 def process_stream(stream, model, saliency_root, overlay_dir, irof_dir, device):
     global_csv_path = os.path.join(irof_dir, f"all_{stream}_irof_scores.csv")
     os.makedirs(overlay_dir, exist_ok=True)
