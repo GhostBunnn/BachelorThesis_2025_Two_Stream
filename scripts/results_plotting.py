@@ -1,13 +1,14 @@
-
 import sys
 import os
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
 import pandas as pd
 from scipy.stats import wilcoxon
+import matplotlib.patches as mpatches
 
 base_font_size = 20
 plt.rc('font', size = base_font_size)
@@ -105,6 +106,63 @@ def run_wilcoxon_by_stream(df, pivot_dfs, baseline_col=0.0):
     
     return pd.DataFrame(results).dropna()
 
+import seaborn as sns
+
+def plot_boxplots_with_wilcoxon(df, baseline_col=0.0, output_dir="results"):
+    os.makedirs(output_dir, exist_ok=True)
+    for stream in df["stream"].unique():
+        if stream == 'spatial':
+            traincolor = 'blue'
+            valcolor = 'red'
+        else:
+            traincolor = 'green'
+            valcolor = 'orange'
+        
+        stream_df = df[df["stream"] == stream]
+        pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
+        baseline_vals = pivot_df[baseline_col]
+
+        melt_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
+        melt_df["prune_percent"] = melt_df["prune_percent"].apply(lambda x: f"{float(x):.2f}")
+
+        plt.figure(figsize=(16, 8))
+        ax = sns.boxplot(
+            data=melt_df,
+            x="prune_percent",
+            y="accuracy",
+            showmeans=True,
+            meanprops={"marker": "o", "markerfacecolor": "white", "markeredgecolor": "black", "markersize": 8},
+            medianprops={"color": "orange", "linewidth": 3}
+        )
+        plt.xticks(rotation=90)
+        mean_patch = mpatches.Patch(facecolor='white', edgecolor='black', label='Mean (white dot)')
+        median_patch = mpatches.Patch(color='orange', label='Median (orange line)')
+        if stream == 'spatial':
+            legend_loc = 'upper left'
+        else:
+            legend_loc = 'lower left'
+        plt.legend(handles=[mean_patch, median_patch], loc = legend_loc)
+        ax.set_xlabel("Pruning Percentage")
+        ax.set_ylabel("Accuracy")
+
+        # Annotate Wilcoxon p-values
+        for tick, prune_str in enumerate(sorted(melt_df["prune_percent"].unique(), key=lambda x: float(x))):
+            prune = float(prune_str)
+            if prune == baseline_col or prune not in pivot_df.columns:
+                continue
+            try:
+                stat, p = wilcoxon(baseline_vals, pivot_df[prune])
+                p_label = f"p = {p:.3f}" if p >= 0.001 else "p < 0.001"
+                ax.text(tick, ax.get_ylim()[1]*0.98, p_label, ha='center', va='top', fontsize=12, color='red', weight='bold')
+            except Exception as e:
+                print(f"Could not compute Wilcoxon for {stream}, prune={prune}: {e}")
+
+        plt.grid(True, linestyle='--', alpha=0.5)
+        out_path = os.path.join(output_dir, f"{stream}_boxplot_wilcoxon.png")
+        plt.savefig(out_path, bbox_inches='tight')
+        plt.close()
+        print(f"Boxplot saved to: {out_path}")
+
 
 # compute cohen's d
 def compute_cohens_d_by_stream(df, pivot_dfs, baseline_col=0.0):
@@ -160,6 +218,7 @@ temporal_csv_path = os.path.join(BASE_DIR, "results", "temporal_pruning_accuraci
 
 combined_df, pivot_df = load_and_prepare_data(spatial_csv_path, temporal_csv_path)
 wilcoxon_df = run_wilcoxon_by_stream(combined_df, pivot_df)
+plot_boxplots_with_wilcoxon(combined_df, baseline_col=0.0, output_dir=os.path.join(BASE_DIR, "results"))
 cohens_d_df = compute_cohens_d_by_stream(combined_df, pivot_df)
 mean_accuracy_df = compute_mean_accuracy_by_stream(pivot_df)
 
