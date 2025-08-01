@@ -106,18 +106,46 @@ def run_wilcoxon_by_stream(df, pivot_dfs, baseline_col=0.0):
     
     return pd.DataFrame(results).dropna()
 
-import seaborn as sns
-
-def plot_boxplots_with_wilcoxon(df, baseline_col=0.0, output_dir="results"):
+def plot_boxplots_irof(df, output_dir="results", prefix=""):
     os.makedirs(output_dir, exist_ok=True)
     for stream in df["stream"].unique():
-        if stream == 'spatial':
-            traincolor = 'blue'
-            valcolor = 'red'
-        else:
-            traincolor = 'green'
-            valcolor = 'orange'
         
+        stream_df = df[df["stream"] == stream]
+        pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
+
+        melt_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
+        melt_df["prune_percent"] = melt_df["prune_percent"].apply(lambda x: f"{float(x):.2f}")
+
+        plt.figure(figsize=(16, 8))
+        ax = sns.boxplot(
+            data=melt_df,
+            x="prune_percent",
+            y="accuracy",
+            color='blue',
+            showmeans=True,
+            meanprops={"marker": "o", "markerfacecolor": "white", "markeredgecolor": "black", "markersize": 8},
+            medianprops={"color": "orange", "linewidth": 3}
+        )
+        plt.xticks(rotation=90)
+
+        mean_patch = mpatches.Patch(facecolor='white', edgecolor='black', label='Mean (white dot)')
+        median_patch = mpatches.Patch(color='orange', label='Median (orange line)')
+        legend_loc = 'upper left' if stream == 'spatial' else 'lower left'
+        plt.legend(handles=[mean_patch, median_patch], loc=legend_loc)
+
+        ax.set_xlabel("Pruning Percentage")
+        ax.set_ylabel("IROF AUC")
+
+        plt.grid(True, linestyle='--', alpha=0.5)
+        out_path = os.path.join(output_dir, f"{prefix}{stream}_boxplot_wilcoxon.png")
+        plt.savefig(out_path, bbox_inches='tight')
+        plt.close()
+        print(f"IROF boxplot saved to: {out_path}")
+
+
+def plot_boxplots_with_wilcoxon(df, baseline_col=0.0, output_dir="results", prefix=""):
+    os.makedirs(output_dir, exist_ok=True)
+    for stream in df["stream"].unique():
         stream_df = df[df["stream"] == stream]
         pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
         baseline_vals = pivot_df[baseline_col]
@@ -158,7 +186,7 @@ def plot_boxplots_with_wilcoxon(df, baseline_col=0.0, output_dir="results"):
                 print(f"Could not compute Wilcoxon for {stream}, prune={prune}: {e}")
 
         plt.grid(True, linestyle='--', alpha=0.5)
-        out_path = os.path.join(output_dir, f"{stream}_boxplot_wilcoxon.png")
+        out_path = os.path.join(output_dir, f"{prefix}{stream}_boxplot_wilcoxon.png")
         plt.savefig(out_path, bbox_inches='tight')
         plt.close()
         print(f"Boxplot saved to: {out_path}")
@@ -218,7 +246,7 @@ temporal_csv_path = os.path.join(BASE_DIR, "results", "temporal_pruning_accuraci
 
 combined_df, pivot_df = load_and_prepare_data(spatial_csv_path, temporal_csv_path)
 wilcoxon_df = run_wilcoxon_by_stream(combined_df, pivot_df)
-plot_boxplots_with_wilcoxon(combined_df, baseline_col=0.0, output_dir=os.path.join(BASE_DIR, "results"))
+plot_boxplots_with_wilcoxon(combined_df, baseline_col=0.0, output_dir=os.path.join(BASE_DIR, "results"), prefix="pruning_")
 cohens_d_df = compute_cohens_d_by_stream(combined_df, pivot_df)
 mean_accuracy_df = compute_mean_accuracy_by_stream(pivot_df)
 
@@ -297,3 +325,42 @@ ax2.grid(True)
 plt.savefig(run_plot_path, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 plt.close()
+
+####################################
+# IROF boxplots
+####################################
+irof_dir = os.path.join(BASE_DIR, "plots", "irof_plots")
+
+def parse_prune_ratio(prune_str):
+    if prune_str == "unpruned":
+        return 0.0
+    return float(prune_str.replace("percent", "").replace("_", "."))
+
+# Collect CSV paths
+irof_csv_paths = []
+for run_id in ["run1", "run2", "run3", "run4", "run5"]:
+    run_dir = os.path.join(irof_dir, run_id)
+    if not os.path.exists(run_dir):
+        continue
+    for prune_ratio in os.listdir(run_dir):
+        for stream in ["spatial", "temporal"]:
+            csv_path = os.path.join(run_dir, prune_ratio, stream, f"all_{stream}_irof_scores.csv")
+            if os.path.exists(csv_path):
+                irof_csv_paths.append((run_id, prune_ratio, stream, csv_path))
+
+# Build a combined dataframe
+irof_records = []
+for run_id, prune_ratio, stream, csv_path in irof_csv_paths:
+    prune_val = parse_prune_ratio(prune_ratio)
+    df = pd.read_csv(csv_path)
+    # CSV has: video, frame_file, irof_auc
+    for _, row in df.iterrows():
+        irof_records.append({
+            "run_id": run_id,
+            "prune_percent": prune_val,
+            "accuracy": row["irof_auc"],
+            "stream": stream
+        })
+
+irof_df = pd.DataFrame(irof_records)
+plot_boxplots_irof(irof_df, output_dir=os.path.join(BASE_DIR, "results"), prefix="irof_")
