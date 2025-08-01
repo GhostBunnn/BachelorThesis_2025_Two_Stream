@@ -29,6 +29,11 @@ python explanations.py --run_id run1
 python explanations.py --run_id run1 --use_pruned --prune_amount 4_00percent
 '''
 
+'''
+Additionally, the plotting of the IROF curve is included in this script, 
+but commented out at the moment to avoid unnecessary resource occupation
+'''
+
 def find_file_with_prefix(directory, prefix):
     for filename in os.listdir(directory):
         if filename.startswith(prefix) and (filename.endswith(".pth")):
@@ -45,14 +50,11 @@ def load_temporal_model(num_classes, checkpoint_path, device):
 def load_spatial_model_dropout(num_classes, checkpoint_path, device):
     model = load_spatial_model(num_classes)
 
-    # Check if model.fc is a Sequential already
     if isinstance(model.fc, nn.Sequential):
-        # Safely extract from the second layer (assuming it's Linear)
         in_features = model.fc[1].in_features
     else:
         in_features = model.fc.in_features
 
-    # Replace with new dropout + classifier
     model.fc = nn.Sequential(
         nn.Dropout(p=0.5),
         nn.Linear(in_features, num_classes)
@@ -90,7 +92,7 @@ def save_saliency_map(saliency, path):
     plt.figure(figsize=(5, 5))
     plt.axis('off')  # No axes
     plt.imshow(saliency, cmap='hot', interpolation='nearest')
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # remove padding
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     plt.savefig(path, bbox_inches='tight', pad_inches=0)
     plt.close()
 
