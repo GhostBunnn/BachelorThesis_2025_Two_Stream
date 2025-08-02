@@ -46,6 +46,7 @@ python fusion.py --run_id run1 --use_pruned --prune_amount 4_00percent
 
 #pruned softmax
 python fusion.py --run_id run2 --use_pruned --prune_amount 7_84percent --use_softmax
+
 '''
 parser = argparse.ArgumentParser(description="Two-stream SVM fusion")
 parser.add_argument('--use_softmax', action='store_true', help='Apply softmax to the features before fusion')
