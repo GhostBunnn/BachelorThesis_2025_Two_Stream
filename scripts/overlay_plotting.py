@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from PIL import Image
 
+'''
+This script only works for specific videos!!!
+'''
+
 def parse_prune_ratio(prune_str):
     if prune_str == "unpruned":
         return 0.0
@@ -83,7 +87,7 @@ sm = cm.ScalarMappable(cmap='jet', norm=norm)
 sm.set_array([])
 
 char = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=0.6, aspect=50, pad=0.02)
-# char.set_label('Saliency Intensity')
+char.set_label('Saliency Intensity')
 
 # plt.tight_layout()
 plt.savefig(savefig_path + '/overlay_saliency_combined_' + video_rgb + ".png")
