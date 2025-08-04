@@ -165,7 +165,10 @@ def plot_function(df, output_path, y_axis, figsize_input=(12, 18), hspace=0.1, t
 
 def plot_boxplots_irof(df, output_dir="results", prefix=""):
     os.makedirs(output_dir, exist_ok=True)
-    for stream in df["stream"].unique():
+    fig, ax = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=(14, 12.6))
+    fig.subplots_adjust(hspace=0.1)
+    
+    for s, stream in enumerate(df["stream"].unique()):
         
         stream_df = df[df["stream"] == stream]
         pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
@@ -173,66 +176,66 @@ def plot_boxplots_irof(df, output_dir="results", prefix=""):
         melt_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
         melt_df["prune_percent"] = melt_df["prune_percent"].apply(lambda x: f"{float(x):.2f}")
 
-        plt.figure(figsize=(16, 8))
-        ax = sns.boxplot(
+        sns.boxplot(
             data=melt_df,
             x="prune_percent",
             y="accuracy",
+            ax = ax[s],
             showmeans=True,
             meanprops={"marker": "o", "markerfacecolor": "white", "markeredgecolor": "black", "markersize": 8},
             medianprops={"color": "orange", "linewidth": 3}
         )
-        plt.xticks(rotation=90)
-
+        ax[s].grid(True, linestyle='--', alpha=0.5)
         mean_patch = mpatches.Patch(facecolor='white', edgecolor='black', label='Mean (white dot)')
         median_patch = mpatches.Patch(color='orange', label='Median (orange line)')
-        plt.legend(handles=[mean_patch, median_patch], loc='upper left')
+        ax[s].legend(handles=[mean_patch, median_patch], loc='upper left')
+        ax[s].set_ylabel("$\mathrm{IROF}_\mathrm{AUC}$ Score")
 
-        ax.set_xlabel("Pruning Amount [%]")
-        ax.set_ylabel("IROF Score")
+    ax[1].set_xlabel("Pruning Amount [%]", labelpad=20)
+    # plt.xticks(rotation=90)
+    out_path = os.path.join(output_dir, f"{prefix}_boxplot.png")
+    plt.savefig(out_path, bbox_inches='tight', pad_inches=0.1)
+    plt.close()
+    print(f"IROF boxplot saved to: {out_path}")
 
-        plt.grid(True, linestyle='--', alpha=0.5)
-        out_path = os.path.join(output_dir, f"{prefix}{stream}_boxplot.png")
-        plt.savefig(out_path, bbox_inches='tight')
-        plt.close()
-        print(f"IROF boxplot saved to: {out_path}")
-
-
-def plot_boxplots_accuracy(df, baseline_col=0.0, output_dir="results", prefix=""):
+def plot_boxplots_accuracy(df, output_dir="results", prefix=""):
     os.makedirs(output_dir, exist_ok=True)
-    for stream in df["stream"].unique():
+    fig, ax = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=(15, 12.5))
+    fig.subplots_adjust(hspace=0.1)
+    
+    for s, stream in enumerate(df["stream"].unique()):
         stream_df = df[df["stream"] == stream]
         pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
-        baseline_vals = pivot_df[baseline_col]
 
         melt_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
         melt_df["prune_percent"] = melt_df["prune_percent"].apply(lambda x: f"{float(x):.2f}")
 
-        plt.figure(figsize=(16, 8))
-        ax = sns.boxplot(
+        sns.boxplot(
             data=melt_df,
             x="prune_percent",
             y="accuracy",
+            ax = ax[s],
             showmeans=True,
             meanprops={"marker": "o", "markerfacecolor": "white", "markeredgecolor": "black", "markersize": 8},
             medianprops={"color": "orange", "linewidth": 3}
         )
-        plt.xticks(rotation=90)
+        
         mean_patch = mpatches.Patch(facecolor='white', edgecolor='black', label='Mean (white dot)')
         median_patch = mpatches.Patch(color='orange', label='Median (orange line)')
         if stream == 'spatial':
             legend_loc = 'upper left'
         else:
             legend_loc = 'lower left'
-        plt.legend(handles=[mean_patch, median_patch], loc = legend_loc)
-        ax.set_xlabel("Pruning Amount [%]")
-        ax.set_ylabel("Accuracy [%]")
-
-        plt.grid(True, linestyle='--', alpha=0.5)
-        out_path = os.path.join(output_dir, f"{prefix}{stream}_boxplot_accuracy.png")
-        plt.savefig(out_path, bbox_inches='tight')
-        plt.close()
-        print(f"Boxplot saved to: {out_path}")
+        ax[s].legend(handles=[mean_patch, median_patch], loc = legend_loc)
+        ax[s].set_ylabel("Accuracy [%]")
+        ax[s].grid(True, linestyle='--', alpha=0.5)
+    
+    ax[1].set_xlabel("Pruning Amount [%]", labelpad=20)
+    out_path = os.path.join(output_dir, f"{prefix}_boxplot_accuracy.png")
+    plt.xticks(rotation=90)
+    plt.savefig(out_path, bbox_inches='tight', pad_inches=0.1)
+    plt.close()
+    print(f"Boxplot saved to: {out_path}")
 
 def irof_anova(stream, anova, posthoc):
     anova_path = os.path.join(BASE_DIR, "results", f"{stream}_irof_anova.csv")
@@ -242,27 +245,37 @@ def irof_anova(stream, anova, posthoc):
     print(f"ANOVA results saved to: {anova_path}")
     print(f"Post-hoc results saved to: {posthoc_path}")
 
-def plot_irof_trend_with_ci(df, stream, posthoc):
-    df = df.copy()
-    df["prune_percent"] = df["prune_percent"].astype(str)  # categorical
+def plot_irof_trend_with_ci(df, output_dir=os.path.join(BASE_DIR, "results")):
     
-    plt.figure(figsize=(8, 6))
-    if stream == 'spatial':
-        ax = sns.pointplot(data=df, x="prune_percent", y="accuracy", errorbar=("ci", 95),
-                       capsize=0.1, color = 'orange', markers="o", linestyles="-", err_kws={'linewidth':2})
-    else:
-        ax = sns.pointplot(data=df, x="prune_percent", y="accuracy", errorbar=("ci", 95),
-                       capsize=0.1, markers="o", linestyles="-", err_kws={'linewidth':2})
+    fig, ax = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [1, 1]}, figsize=(12, 18))
+    fig.subplots_adjust(hspace=0.1)
+    
+    for s, stream in enumerate(df["stream"].unique()):
+        stream_df = df[df["stream"] == stream]
+        pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
+        long_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
+        anova = pg.anova(dv="accuracy", between="prune_percent", data=long_df, detailed=True)
+        posthoc = pg.pairwise_tests(dv="accuracy", between="prune_percent", data=long_df, padjust="bonf", parametric=True)
+        irof_anova(stream, anova, posthoc)
+    
+        long_df = long_df.copy()
+        long_df["prune_percent"] = long_df["prune_percent"].astype(str)  # categorical
+        
+        if stream == 'spatial':
+            sns.pointplot(data=long_df, x="prune_percent", y="accuracy", ax = ax[s], errorbar=("ci", 95),
+                           capsize=0.1, color = 'orange', markers="o", linestyles="-", err_kws={'linewidth':2}, label="Spatial")
+        else:
+            sns.pointplot(data=long_df, x="prune_percent", y="accuracy", ax = ax[s], errorbar=("ci", 95),
+                           capsize=0.1, markers="o", linestyles="-", err_kws={'linewidth':2}, label="Temporal")
+        ax[s].set_ylabel("$\mathrm{IROF}_\mathrm{AUC}$ Score")
+        ax[s].grid(True, linestyle="--", alpha=0.5)
+        ax[s].legend(loc='upper left')
 
-    ax.set_xlabel("Pruning Amount [%]")
-    ax.set_ylabel("IROF Score")
-    ax.grid(True, linestyle="--", alpha=0.5)
-
-    out_path = os.path.join(BASE_DIR, "results", f"{stream}_irof_trend.png")
-    plt.savefig(out_path, bbox_inches="tight")
+    ax[1].set_xlabel("Pruning Amount [%]", labelpad=20)
+    out_path = os.path.join(output_dir, "irof_trend.png")
+    plt.savefig(out_path, bbox_inches="tight", pad_inches=0.1)
     plt.close()
     print(f"Trend plot saved to: {out_path}")
-
 
 ################################################################## begin here ###############################################################
 spatial_csv_path = os.path.join(BASE_DIR, "results", "spatial_pruning_accuracies.csv")
@@ -270,7 +283,7 @@ temporal_csv_path = os.path.join(BASE_DIR, "results", "temporal_pruning_accuraci
 
 combined_df, pivot_df = combine_csv(spatial_csv_path, temporal_csv_path)
 wilcoxon_df = run_wilcoxon_by_stream(combined_df, pivot_df)
-plot_boxplots_accuracy(combined_df, baseline_col=0.0, output_dir=os.path.join(BASE_DIR, "results"), prefix="pruning_")
+plot_boxplots_accuracy(combined_df, output_dir=os.path.join(BASE_DIR, "results"), prefix="pruning")
 cohens_d_df = compute_cohens_d(combined_df, pivot_df)
 mean_accuracy_df = compute_mean_accuracy(pivot_df)
 accuracy_anova(combined_df, output_dir=os.path.join(BASE_DIR, "results"))
@@ -318,7 +331,7 @@ accuracy_trend_plot_path = os.path.join(BASE_DIR, "results", "per_run_accuracy_p
 plot_function(combined_df, accuracy_trend_plot_path, y_axis="Accuracy [%]")
 
 ####################################
-# IROF plotting
+# IROF boxplots
 ####################################
 irof_dir = os.path.join(BASE_DIR, "plots", "irof_plots")
 
@@ -327,7 +340,7 @@ def parse_prune_ratio(prune_str):
         return 0.0
     return float(prune_str.replace("percent", "").replace("_", "."))
 
-# csv paths
+# Collect CSV paths
 irof_csv_paths = []
 for run_id in ["run1", "run2", "run3", "run4", "run5"]:
     run_dir = os.path.join(irof_dir, run_id)
@@ -339,6 +352,7 @@ for run_id in ["run1", "run2", "run3", "run4", "run5"]:
             if os.path.exists(csv_path):
                 irof_csv_paths.append((run_id, prune_ratio, stream, csv_path))
 
+# Build a combined dataframe
 irof_records = []
 for run_id, prune_ratio, stream, csv_path in irof_csv_paths:
     prune_val = parse_prune_ratio(prune_ratio)
@@ -351,17 +365,8 @@ for run_id, prune_ratio, stream, csv_path in irof_csv_paths:
             "stream": stream
         })
 
-
 irof_df = pd.DataFrame(irof_records)
 
-for stream in irof_df["stream"].unique():
-    stream_df = irof_df[irof_df["stream"] == stream]
-    pivot_df = stream_df.pivot_table(index="run_id", columns="prune_percent", values="accuracy", aggfunc="mean")
-    long_df = pivot_df.reset_index().melt(id_vars="run_id", var_name="prune_percent", value_name="accuracy")
-    anova = pg.anova(dv="accuracy", between="prune_percent", data=long_df, detailed=True)
-    posthoc = pg.pairwise_tests(dv="accuracy", between="prune_percent",
-                                 data=long_df, padjust="bonf", parametric=True)
-    irof_anova(stream, anova, posthoc)
-    plot_irof_trend_with_ci(long_df, stream, posthoc)
-
-plot_boxplots_irof(irof_df, output_dir=os.path.join(BASE_DIR, "results"), prefix="irof_")
+# Run plotting
+plot_irof_trend_with_ci(irof_df)
+plot_boxplots_irof(irof_df, output_dir=os.path.join(BASE_DIR, "results"), prefix="irof")
