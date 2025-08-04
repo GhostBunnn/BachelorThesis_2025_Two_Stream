@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Set to the parent directory of the script
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)  # Add the project root (new_code) to Python's search path
 
 from datasets.spatial_dataset_txt import RGBDataset

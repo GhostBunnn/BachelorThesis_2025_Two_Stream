@@ -25,20 +25,16 @@ args = parser.parse_args()
 run_id = args.run_id
 
 # Paths
-# maybe best?
-#MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "74.64%acc_sssspatial_model_lr0.0001_bs25_epochs25_03.pth")
+model_load_path = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_spatial_unpruned_lr0.0001_bs25_epochs25_03.pth")
 
-#Adjust to same run unpruned model
-MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_spatial_unpruned_lr0.0001_bs25_epochs25_03.pth")
-
-DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
-TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
-VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
-TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_iterative_spatial_pruned_model.pth")
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
-CSV_PATH = os.path.join(RESULTS_DIR, "spatial_pruning_accuracies.csv")
+data_dir = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
+train_split = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
+val_split = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
+test_split = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
+pruned_model_path = os.path.join(BASE_DIR, "saved_models", "spatial", f"{run_id}_iterative_spatial_pruned_model.pth")
+results_dir = os.path.join(BASE_DIR, "results")
+os.makedirs(results_dir, exist_ok=True)
+csv_path = os.path.join(results_dir, "spatial_pruning_accuracies.csv")
 
 # Transformations
 transform = transforms.Compose([
@@ -48,9 +44,9 @@ transform = transforms.Compose([
 ])
 
 # Dataset preparation
-train_dataset = RGBDataset(DATA_DIR, TRAIN_SPLIT, transform=transform)
-val_dataset = RGBDataset(DATA_DIR, VAL_SPLIT, transform=transform)
-test_dataset = RGBDataset(DATA_DIR, TEST_SPLIT, transform=transform)
+train_dataset = RGBDataset(data_dir, train_split, transform=transform)
+val_dataset = RGBDataset(data_dir, val_split, transform=transform)
+test_dataset = RGBDataset(data_dir, test_split, transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=25, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=25, shuffle=False, num_workers=4)
@@ -61,7 +57,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 num_classes = len(train_dataset.class_to_idx)
 
 model = load_spatial_model(num_classes, freeze_base=True).to(device)
-model.load_state_dict(torch.load(MODEL_LOAD_PATH))
+model.load_state_dict(torch.load(model_load_path))
 
 def compute_channel_importance(layer):
     return torch.norm(layer.weight.data.view(layer.weight.size(0), -1), p=1, dim=1)
@@ -178,7 +174,7 @@ print("Evaluating baseline model on test data...")
 baseline_accuracy, baseline_loss = test_model(model, test_loader)  # baseline model
 
 # Save baseline accuracy
-with open(CSV_PATH, mode="a", newline="") as file:
+with open(csv_path, mode="a", newline="") as file:
     writer = csv.writer(file)
     writer.writerow([run_id, 0.0, baseline_accuracy, "baseline unpruned"])
 
@@ -213,7 +209,7 @@ while total_pruned_percentage < max_prune_percentage:
     accuracies.append(accuracy)
     losses.append(loss)
     
-    with open(CSV_PATH, mode="a", newline="") as file:
+    with open(csv_path, mode="a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([run_id, total_pruned_percentage * 100, accuracy, "pruned"])
 

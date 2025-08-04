@@ -69,12 +69,6 @@ class RGBDataset(Dataset):
     def __getitem__(self, idx):
         """
         Get a single sample from the dataset.
-
-        Args:
-            idx (int): Index of the sample to retrieve.
-
-        Returns:
-            Tuple[torch.Tensor, int]: Transformed image and class index.
         """
         frame_path, label = self.samples[idx]
 

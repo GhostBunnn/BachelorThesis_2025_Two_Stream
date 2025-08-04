@@ -26,18 +26,16 @@ args = parser.parse_args()
 run_id = args.run_id
 
 # Paths
+model_load_path = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_temporal_unpruned_lr0.0005_bs25_epochs25_03.pth")
 
-#Adjust to same run unpruned model
-MODEL_LOAD_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_temporal_unpruned_lr0.0005_bs25_epochs25_03.pth")
-
-DATA_DIR = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
-TRAIN_SPLIT = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
-VAL_SPLIT = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
-TEST_SPLIT = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
-PRUNED_MODEL_SAVE_PATH = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_iterative_temporal_pruned_model.pth")
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
-CSV_PATH = os.path.join(RESULTS_DIR, "temporal_pruning_accuracies.csv")
+data_dir = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
+train_split = os.path.join(BASE_DIR, "data", "splits", "trainlist03_processed.txt")
+val_split = os.path.join(BASE_DIR, "data", "splits", "vallist03_processed.txt")
+test_split = os.path.join(BASE_DIR, "data", "splits", "testlist03_processed.txt")
+pruned_model_path = os.path.join(BASE_DIR, "saved_models", "temporal", f"{run_id}_iterative_temporal_pruned_model.pth")
+results_dir = os.path.join(BASE_DIR, "results")
+os.makedirs(results_dir, exist_ok=True)
+csv_path = os.path.join(results_dir, "temporal_pruning_accuracies.csv")
 
 # Dataset transforms
 transform = Compose([
@@ -47,9 +45,9 @@ transform = Compose([
 ])
 
 # Dataset preparation
-train_dataset = TemporalDataset(DATA_DIR, TRAIN_SPLIT, 10, transform=transform)
-val_dataset = TemporalDataset(DATA_DIR, VAL_SPLIT, 10, transform=transform)
-test_dataset = TemporalDataset(DATA_DIR, TEST_SPLIT, 10, transform=transform)
+train_dataset = TemporalDataset(data_dir, train_split, 10, transform=transform)
+val_dataset = TemporalDataset(data_dir, val_split, 10, transform=transform)
+test_dataset = TemporalDataset(data_dir, test_split, 10, transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
@@ -209,20 +207,20 @@ def plot_metrics(prune_percentages, accuracies, losses, baseline_accuracy, basel
 if __name__ == "__main__":
     num_classes = len(test_dataset.class_to_idx)
     model = TemporalModel(num_classes=num_classes).to(device)
-    model.load_state_dict(torch.load(MODEL_LOAD_PATH, map_location=device))
+    model.load_state_dict(torch.load(model_load_path, map_location=device))
 
     # Evaluate baseline accuracy
     print("Evaluating baseline model...")
     baseline_accuracy, baseline_loss = test_model(model, test_loader)
     
     # Save baseline accuracy
-    with open(CSV_PATH, mode="a", newline="") as file:
+    with open(csv_path, mode="a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([run_id, 0.0, baseline_accuracy, "baseline unpruned"])
 
     # Iterative pruning 
     max_prune_percentage = 0.5  # pruning limit
-    prune_step = 0.04  # prune 8% at each step
+    prune_step = 0.04  # prune 4% at each step
     current_remaining_percentage = 1.0
     
     prune_percentages = []
@@ -256,7 +254,7 @@ if __name__ == "__main__":
         accuracies.append(accuracy)
         losses.append(loss)
         
-        with open(CSV_PATH, mode="a", newline="") as file:
+        with open(csv_path, mode="a", newline="") as file:
             writer = csv.writer(file)
             writer.writerow([run_id, total_pruned_percentage * 100, accuracy, "pruned"])
 

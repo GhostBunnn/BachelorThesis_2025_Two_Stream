@@ -10,17 +10,11 @@ from pathlib import Path
 
 def extract_frames(video_path, output_dir, frame_rate=1):
     """
-    Extracts frames from a video file at a specified frame rate.
-
-    Args:
-        video_path (str): Path to the input video file.
-        output_dir (str): Directory to save the extracted frames.
-        frame_rate (int): Number of frames to extract per second (default is 1 FPS).
+    Extract frames from a video file at a specified frame rate.
+    frame_rate is then umber of frames to extract per second (1 FPS).
     """
-    # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    # Open the video file
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Error: Could not open video {video_path}")
@@ -50,11 +44,6 @@ def extract_frames(video_path, output_dir, frame_rate=1):
 def extract_frames_from_directory(video_dir, output_root, frame_rate=1):
     """
     Extract frames from all videos in a directory.
-
-    Args:
-        video_dir (str): Directory containing video files.
-        output_root (str): Root directory to save extracted frames for each video.
-        frame_rate (int): Number of frames to extract per second (default is 1 FPS).
     """
     video_dir = Path(video_dir)
     output_root = Path(output_root)
@@ -63,21 +52,20 @@ def extract_frames_from_directory(video_dir, output_root, frame_rate=1):
         print(f"Error: Video directory {video_dir} does not exist.")
         return
 
-    for video_file in video_dir.glob("*.avi"):  # Change extension if needed
+    for video_file in video_dir.glob("*.avi"):
         video_name = video_file.stem  # Get video name without extension
-        output_dir = output_root / video_name  # Directory for this video's frames
+        output_dir = output_root / video_name
         extract_frames(str(video_file), str(output_dir), frame_rate)
 
 
 if __name__ == "__main__":
-    # SPATIAL_MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "spatial", f"{args.run_id}_spatial_pruned_{args.prune_amount}.pth")
-    VIDEO_DATA_PATH = os.path.join(BASE_DIR, "data", "video_data")
-    EXTRACTED_FRAMES_PATH = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
+    video_data_path = os.path.join(BASE_DIR, "data", "video_data")
+    resulting_frames_path = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
 
-    FRAME_RATE = 1
+    frame_rate = 1
 
     extract_frames_from_directory(
-        video_dir=str(VIDEO_DATA_PATH),
-        output_root=str(EXTRACTED_FRAMES_PATH),
-        frame_rate=FRAME_RATE,
+        video_dir=str(video_data_path),
+        output_root=str(resulting_frames_path),
+        frame_rate=frame_rate,
     )

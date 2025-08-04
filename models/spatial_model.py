@@ -3,8 +3,6 @@ import torchvision.models as models
 import os
 import json
 
-
-# Base directory dynamically determined for consistent path resolution
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MAPPING_PATH = os.path.join(BASE_DIR, "scripts", "class_mapping.json")
 

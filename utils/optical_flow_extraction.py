@@ -11,7 +11,7 @@ from pathlib import Path
 from torchvision.transforms.functional import to_tensor, pad
 from torchvision.models.optical_flow import raft_large
 from torchvision.models.optical_flow import Raft_Large_Weights
-from tqdm import tqdm  # For progress tracking
+from tqdm import tqdm
 
 # Load RAFT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,13 +22,6 @@ model = raft_large(weights=Raft_Large_Weights.DEFAULT, progress=False).to(device
 def pad_to_divisible_by_8(tensor):
     """
     Pads a tensor to make its height and width divisible by 8.
-
-    Args:
-        tensor (torch.Tensor): Input tensor of shape (1, C, H, W).
-    
-    Returns:
-        padded_tensor (torch.Tensor): Tensor padded to dimensions divisible by 8.
-        padding (tuple): Padding applied (left, right, top, bottom).
     """
     _, _, h, w = tensor.shape
     pad_h = (8 - h % 8) if h % 8 != 0 else 0
@@ -40,22 +33,14 @@ def pad_to_divisible_by_8(tensor):
 
 def unpad(tensor, padding):
     """
-    Removes the padding from a tensor.
-
-    Args:
-        tensor (torch.Tensor): Padded tensor of shape (1, C, H, W).
-        padding (tuple): Padding applied (left, right, top, bottom).
-
-    Returns:
-        unpadded_tensor (torch.Tensor): Tensor with padding removed.
+    Removes the padding from a tensor. Tensor of shape (1, C, H, W).
     """
     _, _, h, w = tensor.shape
     left, right, top, bottom = padding
     return tensor[..., top:h-bottom, left:w-right] if (top + bottom + left + right) > 0 else tensor
 
 
-def compute_optical_flow(model, frame1_path, frame2_path):
-    # Read and preprocess RGB frames to match pytorch model requirements
+def compute_optical_flow(model, frame1_path, frame2_path):    
     frame1 = to_tensor(cv2.imread(frame1_path)).unsqueeze(0).to(device)
     frame2 = to_tensor(cv2.imread(frame2_path)).unsqueeze(0).to(device)
 
@@ -67,10 +52,8 @@ def compute_optical_flow(model, frame1_path, frame2_path):
     with torch.no_grad():
         flow_list = model(frame1_padded, frame2_padded)  # RAFT returns a list of flow tensors
 
-    # Get the highest-resolution flow (first element in the list)
+    # Get the highest-resolution flow (first element in the list) and unpad the flow to match original frame size
     flow = flow_list[0]
-
-    # Unpad the flow to match the original frame size
     flow = unpad(flow, pad1)
 
     # Separate the horizontal (x) and vertical (y) components of the flow
@@ -81,16 +64,12 @@ def compute_optical_flow(model, frame1_path, frame2_path):
 def process_video_frames(input_dir, output_dir):
     """
     Compute and save optical flow for consecutive frames in a video.
-
-    Args:
-        input_dir (str): Directory containing extracted RGB frames.
-        output_dir (str): Directory to save computed optical flow images.
     """
     os.makedirs(output_dir, exist_ok=True)
-    frame_files = sorted(os.listdir(input_dir))  # Ensure frames are processed in order
+    frame_files = sorted(os.listdir(input_dir))
 
-    total_frames = len(frame_files) - 1  # Total number of frame pairs
-    num_samples = 10
+    total_frames = len(frame_files) - 1
+    num_samples = 10 # per channel to match 20-channel input for temporal stream
 
     # Uniformly sample 10 frame pairs
     indices = np.linspace(0, total_frames - 1, num_samples, dtype=int)
@@ -122,7 +101,7 @@ def process_all_videos(input_root, output_root):
 
 
 if __name__ == "__main__":
-    EXTRACTED_FRAMES_PATH = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
-    OPTICAL_FLOW_PATH = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
+    extracted_frames_path = os.path.join(BASE_DIR, "data", "extracted_rgb_frames")
+    resulting_frames_path = os.path.join(BASE_DIR, "data", "extracted_optical_flow_frames")
 
-    process_all_videos(EXTRACTED_FRAMES_PATH, OPTICAL_FLOW_PATH)
+    process_all_videos(extracted_frames_path, resulting_frames_path)

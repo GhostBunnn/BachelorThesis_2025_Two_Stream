@@ -7,13 +7,6 @@ import numpy as np
 
 class TemporalDataset(Dataset):
     def __init__(self, flow_dir, split_file, num_frames, transform):
-        """
-        Args:
-            flow_dir (str): Path to the directory containing optical flow folders (per video).
-            split_file (str): Path to the .txt file specifying the split (train, val, or test).
-            num_frames (int): Number of flow frames (x and y) to stack.
-            transform (callable, optional): Transform to apply to individual frames.
-        """
         self.flow_dir = flow_dir
         self.split_file = split_file
         self.num_frames = num_frames
@@ -85,12 +78,6 @@ class TemporalDataset(Dataset):
     def _process_frame(self, frame_path):
         """
         Load a single optical flow frame, apply transformations, and convert to NumPy array.
-
-        Args:
-            frame_path (str): Path to the optical flow frame.
-
-        Returns:
-            np.ndarray: Transformed frame as a NumPy array.
         """
         frame = Image.open(frame_path).convert("L")  # Load as grayscale
         if self.transform:

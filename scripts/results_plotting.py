@@ -124,7 +124,7 @@ def plot_function(df, output_path, y_axis, figsize_input=(12, 18), hspace=0.1, t
 
     if y_axis.startswith('Wilcoxon') or y_axis.startswith('Cohen'):
         ax1.bar(spatial_df["prune_percent"], spatial_df["value"], color='orange', label='Spatial')
-        ax2.bar(temporal_df["prune_percent"], temporal_df["value"], color='blue', label='Temporal')
+        ax2.bar(temporal_df["prune_percent"], temporal_df["value"], label='Temporal')
         if y_axis.startswith('Wilcox'):
             ax1.axhline(0.05, color='red', linestyle='--', label='Significance Threshold (p = 0.05)')
             ax2.axhline(0.05, color='red', linestyle='--', label='Significance Threshold (p = 0.05)')
@@ -137,7 +137,7 @@ def plot_function(df, output_path, y_axis, figsize_input=(12, 18), hspace=0.1, t
             ax2.axhline(0.8, color='green', linestyle='--', label='Large Effect (0.8)')
     elif y_axis.startswith('Mean'):      
         ax1.errorbar(spatial_df["prune_percent"], spatial_df["mean_accuracy"], yerr=spatial_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='orange', label = 'Spatial')
-        ax2.errorbar(temporal_df["prune_percent"], temporal_df["mean_accuracy"], yerr=temporal_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='blue', label = 'Temporal')
+        ax2.errorbar(temporal_df["prune_percent"], temporal_df["mean_accuracy"], yerr=temporal_df["std_dev"], fmt='-o', markersize=12, capsize=10, label = 'Temporal')
     elif y_axis.startswith('Accuracy'):
         spatial_df.to_csv(os.path.join(BASE_DIR, "spatial_cohens_d_results.csv"), index=False)
         temporal_df.to_csv(os.path.join(BASE_DIR, "temporal_cohens_d_results.csv"), index=False)
@@ -178,7 +178,6 @@ def plot_boxplots_irof(df, output_dir="results", prefix=""):
             data=melt_df,
             x="prune_percent",
             y="accuracy",
-            color='blue',
             showmeans=True,
             meanprops={"marker": "o", "markerfacecolor": "white", "markeredgecolor": "black", "markersize": 8},
             medianprops={"color": "orange", "linewidth": 3}
@@ -248,8 +247,12 @@ def plot_irof_trend_with_ci(df, stream, posthoc):
     df["prune_percent"] = df["prune_percent"].astype(str)  # categorical
     
     plt.figure(figsize=(8, 6))
-    ax = sns.pointplot(data=df, x="prune_percent", y="accuracy", errorbar=("ci", 95),
-                       capsize=0.1, color="blue", markers="o", linestyles="-", err_kws={'linewidth':2})
+    if stream == 'spatial':
+        ax = sns.pointplot(data=df, x="prune_percent", y="accuracy", errorbar=("ci", 95),
+                       capsize=0.1, color = 'orange', markers="o", linestyles="-", err_kws={'linewidth':2})
+    else:
+        ax = sns.pointplot(data=df, x="prune_percent", y="accuracy", errorbar=("ci", 95),
+                       capsize=0.1, markers="o", linestyles="-", err_kws={'linewidth':2})
 
     ax.set_xlabel("Pruning Amount [%]")
     ax.set_ylabel("IROF Score")

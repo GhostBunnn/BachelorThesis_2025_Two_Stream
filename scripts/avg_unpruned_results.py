@@ -7,6 +7,14 @@ import sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
+'''
+Note: the current scripts for the unpruned models do not log the results of the 
+training and validation accuracy and loss over the epochs, it only plots them.
+For the report, these unpruned results were obtained using PlotDigitizer.
+
+These csvs containing the unpruned training results are crucial for the script to run.
+'''
+
 base_font_size = 24
 plt.rc('font', size = base_font_size)
 plt.rc('axes', linewidth=5, titlesize = base_font_size+2, labelsize = base_font_size+2)
