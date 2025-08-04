@@ -1,4 +1,9 @@
-data/
+data/*
+
+# DO NOT ignore data/splits/
+!data/splits/
+!data/splits/**
+
 plots/
 saved_models/
 *.pth
