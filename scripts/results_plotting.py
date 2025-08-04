@@ -139,8 +139,6 @@ def plot_function(df, output_path, y_axis, figsize_input=(12, 18), hspace=0.1, t
         ax1.errorbar(spatial_df["prune_percent"], spatial_df["mean_accuracy"], yerr=spatial_df["std_dev"], fmt='-o', markersize=12, capsize=10, color='orange', label = 'Spatial')
         ax2.errorbar(temporal_df["prune_percent"], temporal_df["mean_accuracy"], yerr=temporal_df["std_dev"], fmt='-o', markersize=12, capsize=10, label = 'Temporal')
     elif y_axis.startswith('Accuracy'):
-        spatial_df.to_csv(os.path.join(BASE_DIR, "spatial_cohens_d_results.csv"), index=False)
-        temporal_df.to_csv(os.path.join(BASE_DIR, "temporal_cohens_d_results.csv"), index=False)
         for i in range(len(spatial_df["run_id"].unique())):
             ax1.plot(spatial_df[spatial_df["run_id"] == f"run{i+1}"]["prune_percent"], spatial_df[spatial_df["run_id"] == f"run{i+1}"]["accuracy"], marker='o', markersize=12, label=f"run{i+1}")
             ax2.plot(temporal_df[temporal_df["run_id"] == f"run{i+1}"]["prune_percent"], temporal_df[temporal_df["run_id"] == f"run{i+1}"]["accuracy"], marker='o', markersize=12, label=f"run{i+1}")
